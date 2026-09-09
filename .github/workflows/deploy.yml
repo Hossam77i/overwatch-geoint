@@ -32,13 +32,11 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.9.5
-
-      - name: Terraform Init and Apply
-        working-directory: terraform
+      - name: Deploy to AWS Lambda
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: overwatch-geoint
         run: |
-          terraform init
-          terraform apply -auto-approve
+          DIGEST=$(aws ecr describe-images --repository-name $ECR_REPOSITORY --query 'sort_by(imageDetails, &imagePushedAt)[-1].imageDigest' --output text)
+          aws lambda update-function-code --function-name overwatch_geoint_pipeline --image-uri "$ECR_REGISTRY/$ECR_REPOSITORY@$DIGEST"
+          aws lambda wait function-updated --function-name overwatch_geoint_pipeline
