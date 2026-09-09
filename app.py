@@ -135,7 +135,22 @@ def handler(event, context):
         cv2.putText(output_img, f"AVIATION LOCK: 99.8%", (cx - box_w//2, cy - box_h//2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
         detect_count = 1
 
+
+    # --- TACTICAL HUD OVERLAY ---
+    overlay = output_img.copy()
+    img_h, img_w, _ = output_img.shape
+    cv2.rectangle(overlay, (0, 0), (img_w, 70), (0, 0, 0), -1)
+    output_img = cv2.addWeighted(overlay, 0.7, output_img, 0.3, 0)
+    
+    from datetime import datetime
+    timestamp_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+    
+    cv2.putText(output_img, f"OVERWATCH GEOINT // ORBITAL SENSOR: SENTINEL-2 L2A", (15, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    cv2.putText(output_img, f"TGT: {lat:.5f}N, {lon:.5f}E | ALT: 786km | CLOUD COVER: <15%", (15, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 0), 1)
+    cv2.putText(output_img, f"TIMESTAMP: {timestamp_str} | ALGORITHM: {scan_filter.upper()}-LOCK", (img_w - 550, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 0), 1)
+    
     scan_id = str(uuid.uuid4())
+
     out_path = f"/tmp/{scan_id}.jpg"
     cv2.imwrite(out_path, output_img)
     
