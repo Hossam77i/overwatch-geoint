@@ -107,7 +107,7 @@ def handler(event, context):
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 80, minLineLength=80, maxLineGap=15)
         if lines is not None:
             for line in lines:
-                x1, y1, x2, y2 = line[0]
+                x1, y1, x2, y2 = line.flatten()
                 cv2.line(output_img, (x1, y1), (x2, y2), (255, 0, 0), 2)
                 cv2.putText(output_img, "RUNWAY", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
                 detect_count += 1
