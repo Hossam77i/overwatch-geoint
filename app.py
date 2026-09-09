@@ -18,7 +18,7 @@ def handler(event, context):
 
     # 2. Fetch STAC Data
     catalog = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
-    search = catalog.search(collections=["sentinel-2-l2a"], bbox=bbox, datetime="2024-01-01/2026-12-31", query={"eo:cloud_cover": {"lt": 5}})
+    search = catalog.search(collections=["sentinel-2-l2a"], bbox=bbox, datetime="2024-01-01/2026-12-31", query={"eo:cloud_cover": {"lt": 80}})
     items = list(search.items())
     
     if not items:
