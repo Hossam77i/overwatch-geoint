@@ -8,7 +8,7 @@ def deg2num(lat_deg, lon_deg, zoom):
     return (xtile, ytile)
 
 def handler(event, context):
-    print("[*] Overwatch GEOINT Triggered - HIGH RES TACTICAL MODE.")
+    print("[*] Overwatch GEOINT Triggered - HIGH RES TACTICAL MACRO MODE.")
     
     try:
         body = json.loads(event.get('body', '{}'))
@@ -18,25 +18,33 @@ def handler(event, context):
     except:
         lat, lon, scan_filter = 30.5852, 32.3503, 'maritime'
 
-    # Fetch Ultra-High-Res Esri Satellite Tile (Zoom 16)
-    z = 16
-    x, y = deg2num(lat, lon, z)
-    url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+    # Define a tactical bounding box (e.g. ~22km x 22km)
+    width_deg = 0.2
+    height_deg = 0.2
+    west = lon - width_deg / 2
+    east = lon + width_deg / 2
+    south = lat - height_deg / 2
+    north = lat + height_deg / 2
+
+    # Fetch dynamically rendered satellite composite perfectly centered on target
+    url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size=800,800&f=image"
     
     img_path = "/tmp/target.jpg"
     response = requests.get(url)
     with open(img_path, 'wb') as f: f.write(response.content)
 
     img = cv2.imread(img_path)
-    img = cv2.resize(img, (800, 800), interpolation=cv2.INTER_CUBIC)
+    if img is None:
+        # Fallback empty image if download fails
+        img = np.zeros((800, 800, 3), dtype=np.uint8)
+    else:
+        img = cv2.resize(img, (800, 800), interpolation=cv2.INTER_CUBIC)
+    
     output_img = img.copy()
     
-    # Calculate EXACT pixel coordinate of the GPS target inside this specific tile
-    n = 2.0 ** z
-    x_exact = (lon + 180.0) / 360.0 * n
-    y_exact = (1.0 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2.0 * n
-    cx = int((x_exact - x) * 800)
-    cy = int((y_exact - y) * 800)
+    # Target is exactly in the center of the bounding box
+    cx = 400
+    cy = 400
     
     detect_count = 0
     import random
@@ -118,7 +126,7 @@ def handler(event, context):
             "status": "success", 
             "detections": detect_count, 
             "image_url": image_url, 
-            "bbox": [lon-0.1, lat-0.1, lon+0.1, lat+0.1],
+            "bbox": [west, south, east, north],
             "filter": scan_filter
         })
     }
