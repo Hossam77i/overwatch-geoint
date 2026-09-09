@@ -108,3 +108,22 @@ resource "aws_lambda_permission" "api_gw_invoke" {
 output "manual_trigger_url" {
   value = "${aws_apigatewayv2_api.geoint_api.api_endpoint}/trigger-overwatch"
 }
+
+# Allow Lambda to write to the S3 bucket to save the annotated images
+resource "aws_iam_policy" "s3_write" {
+  name        = "overwatch_s3_write"
+  description = "Allow overwatch to publish annotated images to S3"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action   = ["s3:PutObject", "s3:PutObjectAcl"]
+      Effect   = "Allow"
+      Resource = "arn:aws:s3:::hossam-cloud-resume-e4b1b23e/*"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_s3" {
+  role       = aws_iam_role.geoint_lambda_role.name
+  policy_arn = aws_iam_policy.s3_write.arn
+}

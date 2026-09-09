@@ -5,6 +5,7 @@ import numpy as np
 import boto3
 import time
 import uuid
+import json
 from pystac_client import Client
 
 def handler(event, context):
@@ -26,7 +27,7 @@ def handler(event, context):
     
     items = list(search.items())
     if not items:
-        return {"status": "error", "message": "No imagery found."}
+        return {"statusCode": 500, "body": json.dumps({"status": "error", "message": "No imagery found."})}
     
     items.sort(key=lambda x: x.datetime, reverse=True)
     latest_item = items[0]
@@ -59,13 +60,36 @@ def handler(event, context):
     
     contours, _ = cv2.findContours(ship_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    ship_count = sum(1 for c in contours if 5 < cv2.contourArea(c) < 5000)
+    ship_count = 0
+    output_img = img.copy()
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if 5 < area < 5000:
+            x, y, w, h = cv2.boundingRect(contour)
+            cv2.rectangle(output_img, (x, y), (x+w, y+h), (0, 0, 255), 2)
+            cv2.putText(output_img, "VESSEL", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+            ship_count += 1
+            
     print(f"[+] Detected {ship_count} vessels.")
 
-    # 3. Publish Intelligence to DynamoDB
+    # 3. Save Annotated Image and Upload to S3
+    out_path = "/tmp/result.jpg"
+    cv2.imwrite(out_path, output_img)
+    
+    bucket_name = "hossam-cloud-resume-e4b1b23e"
+    s3_key = "latest_scan.jpg"
+    s3 = boto3.client('s3', region_name='us-east-1')
+    try:
+        s3.upload_file(out_path, bucket_name, s3_key, ExtraArgs={'ContentType': 'image/jpeg'})
+        image_url = f"http://{bucket_name}.s3-website-us-east-1.amazonaws.com/{s3_key}"
+    except Exception as e:
+        print(f"[-] S3 Upload Failed: {e}")
+        image_url = ""
+
+    # 4. Publish Intelligence to DynamoDB
     try:
         dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-        table = dynamodb.Table('cloud-resume-threats') # Using your existing table
+        table = dynamodb.Table('cloud-resume-threats')
         table.put_item(
             Item={
                 'id': str(uuid.uuid4()),
@@ -75,9 +99,14 @@ def handler(event, context):
                 'payload': f"SUEZ CANAL MONITOR: {ship_count} CARGO VESSELS DETECTED."
             }
         )
-        print("[+] Intelligence pushed to Sentinel Database.")
     except Exception as e:
         print(f"[-] Failed to push to DB: {e}")
 
-    import json
-    return {"statusCode": 200, "body": json.dumps({"status": "success", "vessels_detected": ship_count})}
+    return {
+        "statusCode": 200,
+        "body": json.dumps({
+            "status": "success", 
+            "vessels_detected": ship_count,
+            "image_url": image_url
+        })
+    }
