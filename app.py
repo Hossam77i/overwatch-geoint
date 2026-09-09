@@ -84,7 +84,7 @@ def handler(event, context):
                     # A ship must be somewhat rectangular/elongated (aspect ratio > 1.5) and solid (solidity > 0.7)
                     if 1.2 < aspect_ratio < 10.0 and solidity > 0.6:
                         box = cv2.boxPoints(rect)
-                        box = np.int0(box)
+                        box = np.int32(box)
                         cv2.drawContours(output_img, [box], 0, (0, 0, 255), 2)
                         
                         x, y, w, h = cv2.boundingRect(c)
