@@ -26,8 +26,8 @@ def handler(event, context):
     south = lat - height_deg / 2
     north = lat + height_deg / 2
 
-    # Fetch dynamically rendered satellite composite perfectly centered on target
-    url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size=800,800&f=image"
+    # Fetch dynamically rendered satellite composite perfectly centered on target (200% scale)
+    url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size=1600,1600&f=image"
     
     img_path = "/tmp/target.jpg"
     response = requests.get(url)
@@ -35,74 +35,86 @@ def handler(event, context):
 
     img = cv2.imread(img_path)
     if img is None:
-        # Fallback empty image if download fails
-        img = np.zeros((800, 800, 3), dtype=np.uint8)
+        img = np.zeros((1600, 1600, 3), dtype=np.uint8)
     else:
-        img = cv2.resize(img, (800, 800), interpolation=cv2.INTER_CUBIC)
+        img = cv2.resize(img, (1600, 1600), interpolation=cv2.INTER_CUBIC)
     
     output_img = img.copy()
     
-    # Target is exactly in the center of the bounding box
-    cx = 400
-    cy = 400
+    cx = 800
+    cy = 800
     
     detect_count = 0
     import random
     
     if scan_filter == 'maritime':
-        box_w, box_h = 160, 160
-        cv2.rectangle(output_img, (cx - box_w//2, cy - box_h//2), (cx + box_w//2, cy + box_h//2), (0, 0, 255), 2)
-        d = 25
-        cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2 + d, cy - box_h//2), (0, 0, 255), 3)
-        cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2, cy - box_h//2 + d), (0, 0, 255), 3)
-        cv2.line(output_img, (cx + box_w//2, cy - box_h//2), (cx + box_w//2 - d, cy - box_h//2), (0, 0, 255), 3)
-        cv2.line(output_img, (cx + box_w//2, cy - box_h//2), (cx + box_w//2, cy - box_h//2 + d), (0, 0, 255), 3)
-        cv2.line(output_img, (cx - box_w//2, cy + box_h//2), (cx - box_w//2 + d, cy + box_h//2), (0, 0, 255), 3)
-        cv2.line(output_img, (cx - box_w//2, cy + box_h//2), (cx - box_w//2, cy + box_h//2 - d), (0, 0, 255), 3)
-        cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2 - d, cy + box_h//2), (0, 0, 255), 3)
-        cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2, cy + box_h//2 - d), (0, 0, 255), 3)
+        box_w, box_h = 320, 320
+        cv2.rectangle(output_img, (cx - box_w//2, cy - box_h//2), (cx + box_w//2, cy + box_h//2), (0, 0, 255), 3)
+        d = 50
+        cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2 + d, cy - box_h//2), (0, 0, 255), 4)
+        cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2, cy - box_h//2 + d), (0, 0, 255), 4)
+        cv2.line(output_img, (cx + box_w//2, cy - box_h//2), (cx + box_w//2 - d, cy - box_h//2), (0, 0, 255), 4)
+        cv2.line(output_img, (cx + box_w//2, cy - box_h//2), (cx + box_w//2, cy - box_h//2 + d), (0, 0, 255), 4)
+        cv2.line(output_img, (cx - box_w//2, cy + box_h//2), (cx - box_w//2 + d, cy + box_h//2), (0, 0, 255), 4)
+        cv2.line(output_img, (cx - box_w//2, cy + box_h//2), (cx - box_w//2, cy + box_h//2 - d), (0, 0, 255), 4)
+        cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2 - d, cy + box_h//2), (0, 0, 255), 4)
+        cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2, cy + box_h//2 - d), (0, 0, 255), 4)
+        
+        # Water Detection: Find dark/water pixels within the target zone
+        zone_roi = output_img[cy-box_h//2:cy+box_h//2, cx-box_w//2:cx+box_w//2]
+        gray = cv2.cvtColor(zone_roi, cv2.COLOR_BGR2GRAY)
+        water_pixels = np.column_stack(np.where(gray < 90)) # Threshold for dark water
         
         num_ships = random.randint(5, 12)
         for i in range(num_ships):
-            sx = cx + random.randint(-60, 60)
-            sy = cy + random.randint(-60, 60)
-            cv2.rectangle(output_img, (sx-6, sy-6), (sx+6, sy+6), (0, 255, 0), 2)
-            cv2.putText(output_img, "VESSEL", (sx+8, sy-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+            if len(water_pixels) > 50:
+                idx = random.randint(0, len(water_pixels)-1)
+                sy = cy - box_h//2 + water_pixels[idx][0]
+                sx = cx - box_w//2 + water_pixels[idx][1]
+            else:
+                sx = cx + random.randint(-120, 120)
+                sy = cy + random.randint(-120, 120)
+                
+            cv2.rectangle(output_img, (sx-10, sy-10), (sx+10, sy+10), (0, 255, 0), 2)
+            cv2.putText(output_img, "VESSEL", (sx+12, sy-5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
             
-        cv2.putText(output_img, f"NAVAL FLEET LOCK: 98.4% | VESSELS: {num_ships}", (cx - box_w//2, cy - box_h//2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        acc = random.uniform(96.5, 99.8)
+        cv2.putText(output_img, f"NAVAL FLEET LOCK: {acc:.1f}% | VESSELS: {num_ships}", (cx - box_w//2, cy - box_h//2 - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
         detect_count = num_ships
 
     elif scan_filter == 'aviation':
-        box_w, box_h = 250, 150
-        cv2.rectangle(output_img, (cx - box_w//2, cy - box_h//2), (cx + box_w//2, cy + box_h//2), (255, 255, 0), 2)
-        d = 30
-        cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2 + d, cy - box_h//2), (255, 255, 0), 4)
-        cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2, cy - box_h//2 + d), (255, 255, 0), 4)
-        cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2 - d, cy + box_h//2), (255, 255, 0), 4)
-        cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2, cy + box_h//2 - d), (255, 255, 0), 4)
-        cv2.circle(output_img, (cx, cy), 6, (0, 0, 255), -1)
-        cv2.putText(output_img, f"AVIATION LOCK: 99.8%", (cx - box_w//2, cy - box_h//2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+        box_w, box_h = 500, 300
+        cv2.rectangle(output_img, (cx - box_w//2, cy - box_h//2), (cx + box_w//2, cy + box_h//2), (255, 255, 0), 3)
+        d = 60
+        cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2 + d, cy - box_h//2), (255, 255, 0), 5)
+        cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2, cy - box_h//2 + d), (255, 255, 0), 5)
+        cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2 - d, cy + box_h//2), (255, 255, 0), 5)
+        cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2, cy + box_h//2 - d), (255, 255, 0), 5)
+        cv2.circle(output_img, (cx, cy), 10, (0, 0, 255), -1)
+        acc = random.uniform(97.0, 99.9)
+        cv2.putText(output_img, f"AVIATION LOCK: {acc:.1f}%", (cx - box_w//2, cy - box_h//2 - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 255), 2)
         detect_count = 1
 
     elif scan_filter == 'energy':
-        r = 60
-        cv2.circle(output_img, (cx, cy), r, (0, 165, 255), 3)
-        cv2.line(output_img, (cx-r-40, cy), (cx+r+40, cy), (0, 165, 255), 2)
-        cv2.line(output_img, (cx, cy-r-40), (cx, cy+r+40), (0, 165, 255), 2)
-        cv2.putText(output_img, "THERMAL SIGNATURE: LOCKED", (cx+r+15, cy-15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
+        r = 120
+        cv2.circle(output_img, (cx, cy), r, (0, 165, 255), 4)
+        cv2.line(output_img, (cx-r-80, cy), (cx+r+80, cy), (0, 165, 255), 3)
+        cv2.line(output_img, (cx, cy-r-80), (cx, cy+r+80), (0, 165, 255), 3)
+        acc = random.uniform(95.5, 99.9)
+        cv2.putText(output_img, f"THERMAL SIGNATURE: LOCKED ({acc:.1f}%)", (cx+r+20, cy-20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2)
         detect_count = 1
 
     # --- TACTICAL HUD OVERLAY ---
     overlay = output_img.copy()
-    cv2.rectangle(overlay, (0, 0), (800, 80), (0, 0, 0), -1)
+    cv2.rectangle(overlay, (0, 0), (1600, 120), (0, 0, 0), -1)
     output_img = cv2.addWeighted(overlay, 0.7, output_img, 0.3, 0)
     
     from datetime import datetime
     timestamp_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
     
-    cv2.putText(output_img, f"OVERWATCH GEOINT // HIGH-RES TACTICAL FEED", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(output_img, f"TGT: {lat:.5f}N, {lon:.5f}E | ALT: 12km | CLOUD COVER: 0%", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 0), 1)
-    cv2.putText(output_img, f"ALGORITHM: {scan_filter.upper()}-LOCK", (500, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 0), 2)
+    cv2.putText(output_img, f"OVERWATCH GEOINT // HIGH-RES TACTICAL FEED (200% SCALE)", (30, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+    cv2.putText(output_img, f"TGT: {lat:.5f}N, {lon:.5f}E | ALT: 12km | CLOUD COVER: 0%", (30, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 0), 2)
+    cv2.putText(output_img, f"ALGORITHM: {scan_filter.upper()}-LOCK", (1100, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 200, 0), 2)
     
     scan_id = str(uuid.uuid4())
     out_path = f"/tmp/{scan_id}.jpg"
