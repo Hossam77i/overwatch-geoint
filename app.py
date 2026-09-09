@@ -79,4 +79,5 @@ def handler(event, context):
     except Exception as e:
         print(f"[-] Failed to push to DB: {e}")
 
-    return {"status": "success", "vessels_detected": ship_count}
+    import json
+    return {"statusCode": 200, "body": json.dumps({"status": "success", "vessels_detected": ship_count})}
