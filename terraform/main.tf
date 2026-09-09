@@ -77,6 +77,11 @@ resource "aws_lambda_permission" "allow_eventbridge" {
 resource "aws_apigatewayv2_api" "geoint_api" {
   name          = "overwatch_geoint_api"
   protocol_type = "HTTP"
+  cors_configuration {
+    allow_origins = ["*"]
+    allow_methods = ["GET", "OPTIONS"]
+    allow_headers = ["content-type"]
+  }
 }
 resource "aws_apigatewayv2_stage" "default_stage" {
   api_id      = aws_apigatewayv2_api.geoint_api.id
