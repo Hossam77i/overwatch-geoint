@@ -108,7 +108,7 @@ def handler(event, context):
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 80, minLineLength=100, maxLineGap=15)
         if lines is not None:
             # Sort lines by length (squared distance) and take the top 3 longest lines
-            sorted_lines = sorted(lines, key=lambda x: (x[0][2]-x[0][0])**2 + (x[0][3]-x[0][1])**2, reverse=True)
+            sorted_lines = sorted(lines, key=lambda x: (x.flatten()[2]-x.flatten()[0])**2 + (x.flatten()[3]-x.flatten()[1])**2, reverse=True)
             for line in sorted_lines[:3]:
                 x1, y1, x2, y2 = line.flatten()
                 cv2.line(output_img, (x1, y1), (x2, y2), (255, 0, 0), 3)
