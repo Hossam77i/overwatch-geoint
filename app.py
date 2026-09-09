@@ -97,19 +97,22 @@ def handler(event, context):
         circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1, 20, param1=40, param2=25, minRadius=2, maxRadius=25)
         if circles is not None:
             circles = np.uint16(np.around(circles))
-            for i in circles[0, :]:
-                cv2.circle(output_img, (i[0], i[1]), i[2], (0, 255, 0), 2)
-                cv2.putText(output_img, "TANK", (i[0]-10, i[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+            sorted_circles = sorted(circles[0, :], key=lambda x: x[2], reverse=True)
+            for i in sorted_circles[:5]:
+                cv2.circle(output_img, (i[0], i[1]), i[2], (0, 255, 0), 3)
+                cv2.putText(output_img, "HV-TANK", (i[0]-10, i[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
                 detect_count += 1
 
     elif scan_filter == 'aviation':
         edges = cv2.Canny(gray, 40, 120, apertureSize=3)
-        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 80, minLineLength=80, maxLineGap=15)
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 80, minLineLength=100, maxLineGap=15)
         if lines is not None:
-            for line in lines:
+            # Sort lines by length (squared distance) and take the top 3 longest lines
+            sorted_lines = sorted(lines, key=lambda x: (x[0][2]-x[0][0])**2 + (x[0][3]-x[0][1])**2, reverse=True)
+            for line in sorted_lines[:3]:
                 x1, y1, x2, y2 = line.flatten()
-                cv2.line(output_img, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                cv2.putText(output_img, "RUNWAY", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+                cv2.line(output_img, (x1, y1), (x2, y2), (255, 0, 0), 3)
+                cv2.putText(output_img, f"RUNWAY ALIGN", (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
                 detect_count += 1
 
     scan_id = str(uuid.uuid4())
