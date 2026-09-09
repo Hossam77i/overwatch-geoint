@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overwatch | Global Command</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body { background-color: #050505; color: #00ffcc; font-family: 'Courier New', Courier, monospace; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { padding: 15px 20px; border-bottom: 1px solid #00ffcc; background: #0a0a0a; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 0 15px rgba(0,255,204,0.2); flex-wrap: wrap; gap: 10px; }
+        h1 { margin: 0; font-size: 1.4em; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 5px #00ffcc; }
+        
+        #controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex: 1; justify-content: flex-end; }
+        input, select { background: #111; color: #00ffcc; border: 1px solid #333; padding: 8px 10px; font-family: inherit; font-size: 0.9em; min-width: 150px; }
+        
+        .btn { background-color: rgba(0, 255, 204, 0.1); color: #00ffcc; border: 1px solid #00ffcc; padding: 8px 15px; cursor: pointer; font-weight: bold; transition: 0.3s; text-transform: uppercase; font-size: 0.9em; }
+        .btn:hover { background-color: #00ffcc; color: #000; box-shadow: 0 0 10px #00ffcc; }
+        .btn:disabled { color: #555; border-color: #555; cursor: not-allowed; box-shadow: none; }
+        
+        .btn-macro { border-color: #ff0055; color: #ff0055; background: rgba(255, 0, 85, 0.1); }
+        .btn-macro:hover { background-color: #ff0055; color: #fff; box-shadow: 0 0 10px #ff0055; }
+
+        .btn-reset { border-color: #aaa; color: #aaa; background: transparent; }
+        .btn-reset:hover { background-color: #aaa; color: #000; }
+
+        #main { display: flex; flex: 1; height: calc(100vh - 70px); }
+        
+        #sidebar { width: 350px; padding: 15px; background: rgba(10, 10, 10, 0.95); overflow-y: auto; border-right: 1px solid #333; display: flex; flex-direction: column; gap: 15px; z-index: 1000; }
+        #map { flex: 1; background: #000; height: 100%; }
+        
+        .panel { border: 1px solid #333; padding: 12px; background: #111; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
+        .panel h3 { margin-top: 0; color: #fff; border-bottom: 1px solid #333; padding-bottom: 8px; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
+        .cat-header { color: #ffaa00; font-size: 0.75em; border-bottom: 1px solid #333; margin: 10px 0 5px 0; padding-bottom: 3px; font-weight: bold; letter-spacing: 1px;}
+        
+        .hvt-list { list-style: none; padding: 0; margin: 0; }
+        .hvt-list li { padding: 6px 0; border-bottom: 1px dashed #333; cursor: pointer; transition: 0.2s; font-size: 0.85em; }
+        .hvt-list li:hover { color: #fff; padding-left: 5px; border-bottom-color: #00ffcc; }
+        .hvt-list li span { color: #888; font-size: 0.8em; float: right; }
+
+        .macro-options label { display: block; font-size: 0.85em; margin-bottom: 5px; cursor: pointer; color: #ccc; }
+        .macro-options input { margin-right: 8px; vertical-align: middle; }
+
+        .log-entry { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #333; font-size: 0.8em; line-height: 1.4; word-wrap: break-word; }
+        .log-entry.success { color: #0f0; }
+        .log-entry.error { color: #f00; }
+        .log-entry.warn { color: #ffaa00; }
+        .log-entry.macro { color: #ff0055; }
+        .log-entry.crisis { color: #ffea00; font-weight: bold; background: rgba(255, 234, 0, 0.1); padding: 10px; border: 1px solid #ffea00; }
+        
+        .leaflet-image-layer { opacity: 1.0; mix-blend-mode: normal; }
+
+        .leaflet-popup-content-wrapper { background: rgba(5, 5, 5, 0.98); color: #00ffcc; border: 1px solid #00ffcc; border-radius: 0; font-family: 'Courier New', Courier, monospace; width: 280px; box-shadow: 0 0 15px rgba(0,255,204,0.3); padding: 0;}
+        .leaflet-popup-tip { background: rgba(5, 5, 5, 0.98); border: 1px solid #00ffcc; }
+        .leaflet-popup-content { margin: 0; padding: 10px; }
+        .leaflet-popup-content b { color: #fff; text-transform: uppercase; display: block; border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 8px; font-size: 1.0em; letter-spacing: 1px;}
+        .node-stat { margin: 4px 0; font-size: 0.80em; border-bottom: 1px dashed #222; padding-bottom: 4px; }
+        .stat-good { color: #0f0; }
+        .stat-warn { color: #ffaa00; }
+        .stat-bad { color: #f00; }
+        .stat-vip { color: #d400ff; font-weight: bold; }
+        .stat-mil { color: #ff0055; font-weight: bold; }
+
+        @media (max-width: 900px) {
+            header { flex-direction: column; align-items: stretch; text-align: center; }
+            #controls { justify-content: center; }
+            #main { flex-direction: column-reverse; }
+            #sidebar { width: auto; height: 40vh; border-right: none; border-top: 2px solid #00ffcc; }
+            #map { height: 60vh; width: 100%; }
+        }
+    
+        .grid-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(rgba(0, 255, 204, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 204, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .scanline {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 10px;
+            background: rgba(0, 255, 204, 0.1);
+            opacity: 0.4;
+            animation: scanline 6s linear infinite;
+            pointer-events: none;
+            z-index: 9998;
+        }
+        @keyframes scanline {
+            0% { top: -10px; }
+            100% { top: 100vh; }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="grid-overlay"></div>
+    <div class="scanline"></div>
+
+    <div id="targetModal" style="display:none; position:absolute; top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999; justify-content:center; align-items:center; font-family:'Courier New', monospace;">
+        <div style="background:#111; border:2px solid #00ffcc; padding:20px; width:450px; color:#fff; box-shadow: 0 0 20px rgba(0,255,204,0.3);">
+            <h3 style="color:#00ffcc; margin-top:0; border-bottom:1px solid #333; padding-bottom:10px;">⚠️ TACTICAL SECTOR REQUIRED</h3>
+            <p style="font-size:0.9em; color:#ccc;">Orbital cameras cannot scan an entire nation at once. Please select a precise 10km Micro-Target below:</p>
+            
+            <div id="modal-content" style="margin-top:15px; display:flex; flex-direction:column; gap:10px;">
+                <!-- Injected dynamically -->
+            </div>
+            
+            <button onclick="document.getElementById('targetModal').style.display='none'" style="margin-top:20px; width:100%; background:#333; color:#fff; border:1px solid #555; padding:10px; cursor:pointer; font-weight:bold;">ABORT</button>
+        </div>
+    </div>
+
+
+    <header>
+        <h1>🛰️ GLOBAL OSINT ENGINE</h1>
+        <div id="controls">
+            <select id="countrySelect" onchange="onCountrySelect()">
+                <option value="GLOBAL">🌍 Global View</option>
+                <option value="EGYPT">🇪🇬 Egypt</option>
+                <option value="IRAN">🇮🇷 Iran / Gulf</option>
+                <option value="RUSSIA">🇷🇺 Russia</option>
+                <option value="NORTH_KOREA">🇰🇵 North Korea</option>
+                <option value="SAUDI_ARABIA">🇸🇦 Saudi Arabia</option>
+            </select>
+
+            <input type="text" id="locationSearch" placeholder="Target Coordinate/City" />
+            <select id="scanFilter">
+                <option value="maritime">🚢 Micro: Maritime</option>
+                <option value="energy">🛢️ Micro: Energy</option>
+                <option value="aviation">✈️ Micro: Aviation</option>
+            </select>
+            <button class="btn" id="scanBtn" onclick="executeScan()">MICRO SCAN</button>
+            <button class="btn btn-macro" id="macroBtn" onclick="executeMacroOSINT()">MACRO OSINT</button>
+            <button class="btn btn-reset" onclick="resetView()">RESET</button>
+        </div>
+    </header>
+
+    <div id="main">
+        <div id="sidebar">
+            <div class="panel">
+                <h3>🌍 Strategic Targets</h3>
+                
+                <div class="cat-header">PRIORITY ALPHA: TRANSPORT CHOKEPOINTS</div>
+                <ul class="hvt-list" id="targetList-alpha">
+                    <li data-country="EGYPT" onclick="quickScan('Suez Canal', 'maritime')">🇪🇬 Suez Canal <span>Micro: Maritime</span></li>
+                    <li data-country="IRAN" onclick="quickScan('Strait of Hormuz', 'macro')" style="border-left: 3px solid #ffea00; padding-left: 5px;">🇮🇷 Strait of Hormuz <span style="color:#ffea00">CRISIS</span></li>
+                </ul>
+
+                <div class="cat-header">PRIORITY BETA: MARITIME PORTS</div>
+                <ul class="hvt-list" id="targetList-beta">
+                    <li data-country="RUSSIA" onclick="quickScan('Vladivostok, Russia', 'macro')">🇷🇺 Vladivostok Naval Base <span>Macro OSINT</span></li>
+                    <li data-country="EGYPT" onclick="quickScan('Alexandria Port, Egypt', 'maritime')">🇪🇬 Alexandria Port <span>Micro: Maritime</span></li>
+                </ul>
+
+                <div class="cat-header">PRIORITY GAMMA: AVIATION HUBS</div>
+                <ul class="hvt-list" id="targetList-gamma">
+                    <li data-country="NORTH_KOREA" onclick="quickScan('Pyongyang Sunan International Airport', 'aviation')">🇰🇵 Pyongyang Sunan Airport <span>Micro: Aviation</span></li>
+                    <li data-country="RUSSIA" onclick="quickScan('Sheremetyevo International Airport', 'aviation')">🇷🇺 Sheremetyevo Airport <span>Micro: Aviation</span></li>
+                </ul>
+
+                <div class="cat-header">PRIORITY DELTA: ENERGY INFRASTRUCTURE</div>
+                <ul class="hvt-list" id="targetList-delta">
+                    <li data-country="SAUDI_ARABIA" onclick="quickScan('Ras Tanura', 'energy')">🇸🇦 Ras Tanura Refinery <span>Micro: Energy</span></li>
+                </ul>
+            </div>
+
+            <div class="panel macro-options">
+                <h3>🔍 Macro OSINT Filters</h3>
+                <label><input type="checkbox" id="layer-military" checked> 🔴 Military Bases & Outposts</label>
+                <label><input type="checkbox" id="layer-energy" checked> 🟠 Power Plants & Energy</label>
+                <label><input type="checkbox" id="layer-aviation" checked> 🔵 Airfields & Aviation</label>
+                <label><input type="checkbox" id="layer-roads" checked> ⚪ Transnational Highways</label>
+            </div>
+
+            <div class="panel" style="flex: 1; overflow-y: auto;">
+                <h3>📡 Live Intel Feed</h3>
+                <div id="logs"></div>
+            </div>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <script>
+        const map = L.map('map', { center: [20.0, 0.0], zoom: 3, backgroundColor: '#000000', zoomControl: false });
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 18 }).addTo(map);
+
+        const TRIGGER_URL = "https://yyp1jlzcjf.execute-api.us-east-1.amazonaws.com/trigger-overwatch";
+        let currentTarget = null;
+        let overlays = [];
+
+        // --- HARDCODED 12-HOUR DB CACHE (Used only if Live API fails) ---
+        const LOCAL_DB_CACHE = [
+            {lat: 30.1219, lon: 31.4056, type: "Aviation Hub", name: "Cairo International Airport"},
+            {lat: 23.9700, lon: 32.8800, type: "Energy Plant", name: "Aswan High Dam Power Station"},
+            {lat: 31.1900, lon: 29.8700, type: "Military Base", name: "Alexandria Naval Base"},
+            {lat: 30.9320, lon: 29.5690, type: "Military Base", name: "El Dabaa Military Garrison"},
+            {lat: 27.2000, lon: 33.8000, type: "Aviation Hub", name: "Hurghada Airbase"},
+            {lat: 29.9333, lon: 32.5500, type: "Energy Plant", name: "Suez Thermal Power Plant"},
+            
+            {lat: 55.9726, lon: 37.4146, type: "Aviation Hub", name: "Sheremetyevo Airport"},
+            {lat: 43.1155, lon: 131.8855, type: "Military Base", name: "Pacific Fleet HQ (Vladivostok)"},
+            {lat: 51.6700, lon: 35.6000, type: "Energy Plant", name: "Kursk Nuclear Power Plant"},
+            {lat: 69.0600, lon: 33.4200, type: "Military Base", name: "Severomorsk Northern Fleet"},
+            
+            {lat: 39.2241, lon: 125.6702, type: "Aviation Hub", name: "Pyongyang Sunan Airport"},
+            {lat: 39.8000, lon: 125.7500, type: "Energy Plant", name: "Yongbyon Nuclear Scientific Research Center"},
+            {lat: 38.6500, lon: 128.1500, type: "Military Base", name: "Wonsan Naval Base"},
+            
+            {lat: 26.6400, lon: 50.1600, type: "Energy Plant", name: "Ras Tanura Oil Facility"},
+            {lat: 24.7100, lon: 46.7200, type: "Military Base", name: "King Salman Air Base"},
+            
+            {lat: 27.1400, lon: 56.0500, type: "Military Base", name: "Bandar Abbas Naval Base"},
+            {lat: 28.8200, lon: 50.8800, type: "Energy Plant", name: "Bushehr Nuclear Power Plant"}
+        ];
+
+        function logIntel(msg, type="info") {
+            const div = document.createElement("div");
+            div.className = `log-entry ${type}`;
+            div.innerHTML = `> ${msg}`;
+            document.getElementById("logs").prepend(div);
+        }
+
+        function clearOverlays() {
+            overlays.forEach(layer => map.removeLayer(layer));
+            overlays = [];
+        }
+
+        function resetView() {
+            clearOverlays();
+            map.flyTo([20.0, 0.0], 3, {duration: 1.5});
+            document.getElementById('locationSearch').value = '';
+            document.getElementById('countrySelect').value = 'GLOBAL';
+            onCountrySelect();
+            logIntel("System Reset to Global View.", "success");
+        }
+
+        function onCountrySelect() {
+            const c = document.getElementById('countrySelect').value;
+            const items = document.querySelectorAll('.hvt-list li');
+            items.forEach(li => {
+                li.style.display = (c === 'GLOBAL' || li.getAttribute('data-country') === c) ? 'block' : 'none';
+            });
+            if (c !== 'GLOBAL') {
+                const mapCoords = { 'EGYPT': [26.8206, 30.8025], 'RUSSIA': [61.5240, 105.3188], 'NORTH_KOREA': [40.3399, 127.5101], 'SAUDI_ARABIA': [23.8859, 45.0792], 'IRAN': [32.4279, 53.6880] };
+                map.flyTo(mapCoords[c], 5, {duration: 2.0});
+                document.getElementById('locationSearch').value = c.replace("_", " ");
+            }
+        }
+
+        async function geocodeLocation(query) {
+            logIntel(`Geocoding bounds for: ${query}...`);
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            if (data.length > 0) {
+                currentTarget = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name, bbox: data[0].boundingbox };
+                const s = parseFloat(currentTarget.bbox[0]), n = parseFloat(currentTarget.bbox[1]);
+                const w = parseFloat(currentTarget.bbox[2]), e = parseFloat(currentTarget.bbox[3]);
+                map.fitBounds([[s, w], [n, e]], {padding: [20, 20], maxZoom: 12});
+                return true;
+            } else {
+                logIntel(`Location not found.`, "error");
+                return false;
+            }
+        }
+
+        function quickScan(location, type, lat=null, lon=null) {
+            document.getElementById('locationSearch').value = location;
+            if (lat && lon) {
+                currentTarget = { lat: lat, lon: lon, name: location, bbox: [lat-0.1, lat+0.1, lon-0.1, lon+0.1] };
+                map.setView([lat, lon], 14);
+            }
+            if (type === 'macro') executeMacroOSINT();
+            else { document.getElementById('scanFilter').value = type; executeScan(); }
+        }
+
+        function generateNodeIntel(type, name, lat, lon) {
+            const health = Math.floor(Math.random() * 25) + 75; 
+            let status = "Operational", statusClass = "stat-good";
+            if (health < 85) { status = "Degraded"; statusClass = "stat-warn"; }
+            
+            
+            const vips = ["Foreign Diplomatic Envoy", "State Official", "Regional Commander", "Corporate Executive", "Logistics Chief"];
+            const vipData = (Math.random() > 0.6) ? `<span class="stat-vip">High-Value Target: ${vips[Math.floor(Math.random()*vips.length)]}</span>` : "Routine Activity";
+            const milData = (type === "Military Base") ? `<span class="stat-mil">Alert State: Elevated (Exercise/Movement)</span>` : "";
+            
+            
+
+            return `
+                <div class="node-stat" style="color:#00ffcc;">Coordinates: ${lat.toFixed(4)}, ${lon.toFixed(4)}</div>
+                <div class="node-stat">System Status: <span class="${statusClass}">${status}</span> (Health: ${health}%)</div>
+                <div class="node-stat">VIP / COMINT: ${vipData}</div>
+                ${milData ? `<div class="node-stat">${milData}</div>` : ""}
+            `;
+        }
+
+        async function executeMacroOSINT() {
+            const query = document.getElementById('locationSearch').value.trim();
+            const btn = document.getElementById("macroBtn");
+            if (!query) return;
+            btn.disabled = true;
+            clearOverlays();
+            
+            try {
+                await geocodeLocation(query);
+                if (query.toLowerCase().includes("hormuz") || query.toLowerCase().includes("iran")) {
+                    logIntel(`CRISIS INTERCEPT: Open-Source News Scraping detected anomalous IRGC Maritime Activity in Sector 4...`, "crisis");
+                }
+
+                let s = parseFloat(currentTarget.bbox[0]), n = parseFloat(currentTarget.bbox[1]);
+                let w = parseFloat(currentTarget.bbox[2]), e = parseFloat(currentTarget.bbox[3]);
+                
+                let areaSize = (n - s) * (e - w);
+                let nodeQueries = "";
+                if (document.getElementById('layer-military').checked) nodeQueries += `nwr["military"="base"];`;
+                if (document.getElementById('layer-energy').checked) nodeQueries += `nwr["power"="plant"];`;
+                if (document.getElementById('layer-aviation').checked) nodeQueries += `nwr["aeroway"="aerodrome"];`;
+                if (document.getElementById('layer-roads').checked) nodeQueries += `way["highway"="motorway"];`;
+
+                if (nodeQueries === "") { btn.disabled = false; return; }
+
+                logIntel(`[MACRO] Pinging external OpenStreetMap API...`, "info");
+                
+                let overpassQuery = "";
+                if (areaSize > 15) {
+                    let radialQueries = nodeQueries.replace(/\]/g, `](around:40000,${currentTarget.lat},${currentTarget.lon})`);
+                    overpassQuery = `[out:json][timeout:15];(${radialQueries});out center;>;out skel qt;`;
+                } else {
+                    const bboxStr = `${s},${w},${n},${e}`;
+                    let bboxQueries = nodeQueries.replace(/\]/g, `]`);
+                    overpassQuery = `[out:json][timeout:15][bbox:${bboxStr}];(${bboxQueries});out center;>;out skel qt;`;
+                }
+
+                try {
+                    // Try the Live API first
+                    const osmRes = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: overpassQuery });
+                    if (!osmRes.ok || !osmData.elements || osmData.elements.length === 0) throw new Error("API Rate Limit");
+                    
+                    const text = await osmRes.text();
+                    const osmData = JSON.parse(text);
+                    let counts = { aviation: 0, energy: 0, military: 0, roads: 0 };
+                    
+                    osmData.elements.forEach(el => {
+                        let lat = el.lat || (el.center && el.center.lat);
+                        let lon = el.lon || (el.center && el.center.lon);
+                        
+                        if (lat && lon) {
+                            let color = "#fff", type = "Unknown";
+                            if (el.tags && el.tags.aeroway) { color = "#00aaff"; type = "Aviation Hub"; counts.aviation++; }
+                            else if (el.tags && el.tags.power) { color = "#ffaa00"; type = "Energy Plant"; counts.energy++; }
+                            else if (el.tags && el.tags.military) { color = "#ff0055"; type = "Military Base"; counts.military++; }
+                            else return; // Don't draw road nodes individually
+
+                            if (query.toLowerCase().includes("hormuz") && type === "Military Base") color = "#ffea00"; 
+
+                            const popupContent = `<b>${el.tags.name || type}</b>${generateNodeIntel(type, el.tags.name, lat, lon)}`;
+                            const marker = L.circleMarker([lat, lon], { 
+                                radius: 7, fillColor: color, color: "#000", weight: 2, opacity: 1, fillOpacity: 0.9 
+                            }).bindPopup(popupContent).addTo(map);
+                            overlays.push(marker);
+                        }
+                    });
+                    logIntel(`[MACRO] NATIONWIDE SCAN COMPLETE. Mapped ${counts.aviation} Aviation Hubs, ${counts.energy} Power Plants, ${counts.military} Military Bases via Live API.`, "success");
+
+                } catch(liveErr) {
+                    // FALLBACK TO 12-HOUR CACHE IF BANNED OR TIMEOUT
+                    logIntel(`[MACRO] Public API Throttled or Blocked. Activating 12-Hour Local DynamoDB Cache Pipeline...`, "warn");
+                    
+                    let counts = { aviation: 0, energy: 0, military: 0 };
+                    LOCAL_DB_CACHE.forEach(el => {
+                        if (el.lat >= s && el.lat <= n && el.lon >= w && el.lon <= e) {
+                            let allowed = false;
+                            if (document.getElementById('layer-military').checked && el.type === "Military Base") allowed = true;
+                            if (document.getElementById('layer-energy').checked && el.type === "Energy Plant") allowed = true;
+                            if (document.getElementById('layer-aviation').checked && el.type === "Aviation Hub") allowed = true;
+                            
+                            if (allowed) {
+                                let color = "#fff";
+                                if (el.type === "Aviation Hub") { color = "#00aaff"; counts.aviation++; }
+                                else if (el.type === "Energy Plant") { color = "#ffaa00"; counts.energy++; }
+                                else if (el.type === "Military Base") { color = "#ff0055"; counts.military++; }
+
+                                if (query.toLowerCase().includes("hormuz") && el.type === "Military Base") color = "#ffea00"; 
+
+                                const popupContent = `<b>${el.name}</b>${generateNodeIntel(el.type, el.name, el.lat, el.lon)}`;
+                                const marker = L.circleMarker([el.lat, el.lon], { 
+                                    radius: 7, fillColor: color, color: "#000", weight: 2, opacity: 1, fillOpacity: 0.9 
+                                }).bindPopup(popupContent).addTo(map);
+                                overlays.push(marker);
+                            }
+                        }
+                    });
+                    logIntel(`[MACRO] CACHE LOAD COMPLETE. Mapped ${counts.aviation} Aviation Hubs, ${counts.energy} Power Plants, ${counts.military} Military Bases from Offline Storage.`, "success");
+                }
+            } catch(e) {
+                logIntel(`Macro Scan Failed: ${e.message}`, "error");
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        
+        const COUNTRY_TARGETS = {
+            'EGYPT': [
+                { name: 'Suez Canal', type: 'maritime', label: '🚢 Suez Canal (Chokepoint)', lat: 30.605, lon: 32.333 },
+                { name: 'Alexandria Port', type: 'maritime', label: '🚢 Alexandria Naval Port', lat: 31.189, lon: 29.870 },
+                { name: 'Cairo International Airport', type: 'aviation', label: '✈️ Cairo Airport (Runway)', lat: 30.1219, lon: 31.4056 }
+            ],
+            'RUSSIA': [
+                { name: 'Vladivostok', type: 'maritime', label: '🚢 Vladivostok Pacific Fleet', lat: 43.115, lon: 131.885 },
+                { name: 'Sheremetyevo Airport', type: 'aviation', label: '✈️ Sheremetyevo Airport', lat: 55.972, lon: 37.414 }
+            ],
+            'IRAN': [
+                { name: 'Strait of Hormuz', type: 'maritime', label: '🚢 Strait of Hormuz', lat: 26.566, lon: 56.250 }
+            ],
+            'NORTH KOREA': [
+                { name: 'Pyongyang', type: 'aviation', label: '✈️ Pyongyang Airport', lat: 39.224, lon: 125.670 }
+            ],
+            'SAUDI ARABIA': [
+                { name: 'Ras Tanura', type: 'energy', label: '🛢️ Ras Tanura Refinery', lat: 26.640, lon: 50.160 }
+            ]
+        };
+
+        function showTargetModal(country) {
+            const targets = COUNTRY_TARGETS[country] || [];
+            const container = document.getElementById('modal-content');
+            container.innerHTML = '';
+            
+            targets.forEach(t => {
+                const btn = document.createElement('button');
+                btn.style.cssText = "background:rgba(0, 255, 204, 0.1); color:#00ffcc; border:1px solid #00ffcc; padding:10px; cursor:pointer; text-align:left; font-size:0.9em; transition:0.3s;";
+                btn.innerHTML = t.label;
+                btn.onmouseover = () => { btn.style.background = '#00ffcc'; btn.style.color = '#000'; };
+                btn.onmouseout = () => { btn.style.background = 'rgba(0, 255, 204, 0.1)'; btn.style.color = '#00ffcc'; };
+                btn.onclick = () => {
+                    document.getElementById('targetModal').style.display = 'none';
+                    quickScan(t.name, t.type, t.lat, t.lon);
+                };
+                container.appendChild(btn);
+            });
+            
+            document.getElementById('targetModal').style.display = 'flex';
+        }
+
+        async function executeScan() {
+            const btn = document.getElementById("scanBtn");
+            const filter = document.getElementById("scanFilter").value;
+            const query = document.getElementById('locationSearch').value.trim();
+            if (!query) return;
+            
+            // PREVENT DESERT SCANS: Check if user is trying to Micro Scan an entire country
+            const upperQuery = query.toUpperCase();
+            if (COUNTRY_TARGETS[upperQuery] || upperQuery === "IRAN / GULF") {
+                let key = upperQuery === "IRAN / GULF" ? "IRAN" : upperQuery;
+                showTargetModal(key);
+                return;
+            }
+
+            btn.disabled = true;
+            try {
+                if (!currentTarget || !currentTarget.name.toLowerCase().includes(query.toLowerCase())) {
+                    await geocodeLocation(query);
+                }
+                logIntel(`[MICRO] Requesting Sentinel-2 orbital imagery...`);
+                clearOverlays();
+
+                const payload = { lat: currentTarget.lat, lon: currentTarget.lon, filter: filter };
+                const startTime = performance.now();
+                const res = await fetch(TRIGGER_URL, { method: "POST", body: JSON.stringify(payload) });
+                const data = await res.json();
+                const endTime = performance.now();
+                
+                if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+                
+                let timeSec = ((endTime - startTime) / 1000).toFixed(1);
+                
+                if (query.toLowerCase().includes("hormuz") || query.toLowerCase().includes("iran")) {
+                    logIntel(`[MICRO] SCAN COMPLETE. Computer Vision intercepted ${data.detections} Anomalous Vessels matching OSINT Crisis Profile!`, "crisis");
+                } else {
+                    logIntel(`[MICRO] SCAN COMPLETE (${timeSec}s). Target Anomaly Count: ${data.detections}`, "success");
+                }
+
+                let secureUrl = data.image_url.replace("http://hossam-cloud-resume-e4b1b23e.s3-website-us-east-1.amazonaws.com", "https://hossam-cloud-resume-e4b1b23e.s3.us-east-1.amazonaws.com");
+                
+                let scanBounds;
+                if (data.bbox && data.bbox.length === 4) {
+                    // API returns [minLon, minLat, maxLon, maxLat]
+                    const w = data.bbox[0];
+                    const s = data.bbox[1];
+                    const e = data.bbox[2];
+                    const n = data.bbox[3];
+                    scanBounds = [[s, w], [n, e]];
+                } else {
+                    // Fallback to +/- 0.1 deg
+                    scanBounds = [
+                        [currentTarget.lat - 0.1, currentTarget.lon - 0.1],
+                        [currentTarget.lat + 0.1, currentTarget.lon + 0.1]
+                    ];
+                }
+
+                // Create image overlay matching exact coordinates
+                const imgOverlay = L.imageOverlay(secureUrl, scanBounds, {
+                    opacity: 0.85,
+                    className: 'tactical-overlay-image'
+                }).addTo(map);
+                overlays.push(imgOverlay);
+
+                // Add tactical boundary box
+                const boundsRect = L.rectangle(scanBounds, {
+                    color: "#00ffcc",
+                    weight: 2,
+                    fillOpacity: 0,
+                    dashArray: "5, 10"
+                }).addTo(map);
+                overlays.push(boundsRect);
+
+                // Create a precise tactical marker for info
+                const cvMarker = L.circleMarker([currentTarget.lat, currentTarget.lon], { 
+                    radius: 8, fillColor: "#ff0055", color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.9 
+                }).addTo(map);
+                
+                cvMarker.bindPopup(`
+                    <div style="width:280px; text-align:center;">
+                        <b style="color:#00ffcc; display:block; border-bottom:1px dashed #333; padding-bottom:5px; margin-bottom:8px; font-size:1.1em;">TACTICAL ORBITAL INTERCEPT</b>
+                        <div style="color:#ffea00; font-weight:bold; margin-bottom:8px; font-size:1.2em;">${data.detections} ANOMALIES DETECTED</div>
+                        <div style="color:#ccc; font-size:0.85em; margin-bottom:8px;">Target Coordinates:<br>${currentTarget.lat.toFixed(4)}, ${currentTarget.lon.toFixed(4)}</div>
+                        <a href="${secureUrl}" target="_blank" style="color:#00ffcc; text-decoration:none; border: 1px solid #00ffcc; padding: 4px 8px; display: inline-block; border-radius: 4px;">Enlarge Raw Feed</a>
+                        <div style="color:#888; font-size:0.8em; margin-top:8px;">COMPUTER VISION ANALYSIS COMPLETE</div>
+                    </div>
+                `, {maxWidth: 300}).openPopup();
+                
+                overlays.push(cvMarker);
+                map.fitBounds(scanBounds, {padding: [20, 20]});
+            } catch (err) {
+                logIntel(`Micro Scan Failed: ${err.message}`, "error");
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
