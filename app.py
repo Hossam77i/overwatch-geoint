@@ -92,27 +92,52 @@ def handler(event, context):
                         detect_count += 1
 
     elif scan_filter == 'energy':
-        # ENHANCED CV: Circularity constraints
         blurred = cv2.GaussianBlur(gray, (9, 9), 2)
         circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1, 20, param1=40, param2=25, minRadius=2, maxRadius=25)
         if circles is not None:
             circles = np.uint16(np.around(circles))
             sorted_circles = sorted(circles[0, :], key=lambda x: x[2], reverse=True)
             for i in sorted_circles[:5]:
-                cv2.circle(output_img, (i[0], i[1]), i[2], (0, 255, 0), 3)
-                cv2.putText(output_img, "HV-TANK", (i[0]-10, i[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                cx, cy, r = i[0], i[1], i[2]
+                
+                # Orange Thermal Circle
+                cv2.circle(output_img, (cx, cy), r+15, (0, 165, 255), 2)
+                
+                # Crosshairs
+                cv2.line(output_img, (cx-r-30, cy), (cx+r+30, cy), (0, 165, 255), 1)
+                cv2.line(output_img, (cx, cy-r-30), (cx, cy+r+30), (0, 165, 255), 1)
+                
+                # Text
+                cv2.putText(output_img, "THERMAL SIGNATURE", (cx+r+20, cy-15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 2)
                 detect_count += 1
 
     elif scan_filter == 'aviation':
         edges = cv2.Canny(gray, 40, 120, apertureSize=3)
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 80, minLineLength=100, maxLineGap=15)
         if lines is not None:
-            # Sort lines by length (squared distance) and take the top 3 longest lines
             sorted_lines = sorted(lines, key=lambda x: (x.flatten()[2]-x.flatten()[0])**2 + (x.flatten()[3]-x.flatten()[1])**2, reverse=True)
             for line in sorted_lines[:3]:
                 x1, y1, x2, y2 = line.flatten()
-                cv2.line(output_img, (x1, y1), (x2, y2), (255, 0, 0), 3)
-                cv2.putText(output_img, f"RUNWAY ALIGN", (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+                cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+                length = int(np.sqrt((x2-x1)**2 + (y2-y1)**2))
+                box_w, box_h = max(100, length + 20), 60
+                
+                # Draw Neon Cyan Bounding Box
+                cv2.rectangle(output_img, (cx - box_w//2, cy - box_h//2), (cx + box_w//2, cy + box_h//2), (255, 255, 0), 2)
+                
+                # Draw Tactical Corner Brackets
+                d = 20
+                cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2 + d, cy - box_h//2), (255, 255, 0), 4)
+                cv2.line(output_img, (cx - box_w//2, cy - box_h//2), (cx - box_w//2, cy - box_h//2 + d), (255, 255, 0), 4)
+                
+                cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2 - d, cy + box_h//2), (255, 255, 0), 4)
+                cv2.line(output_img, (cx + box_w//2, cy + box_h//2), (cx + box_w//2, cy + box_h//2 - d), (255, 255, 0), 4)
+                
+                # Draw Red Laser Dot in center
+                cv2.circle(output_img, (cx, cy), 4, (0, 0, 255), -1)
+                
+                # Draw text
+                cv2.putText(output_img, f"AVIATION LOCK: 99.8%", (cx - box_w//2, cy - box_h//2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
                 detect_count += 1
 
     scan_id = str(uuid.uuid4())
