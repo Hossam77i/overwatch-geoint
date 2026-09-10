@@ -262,24 +262,43 @@ def handler(event, context):
             gray_d = cv2.cvtColor(detail, cv2.COLOR_BGR2GRAY)
             gray_d = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray_d)
             tophat = cv2.morphologyEx(gray_d, cv2.MORPH_TOPHAT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
-            _, tm = cv2.threshold(tophat, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            tm = cv2.morphologyEx(tm, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-            cnts, _ = cv2.findContours(tm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            boxes = []
-            for cnt in cnts:
-                rect = cv2.minAreaRect(cnt)
-                (rcx, rcy), (w, h), ang = rect
-                if min(w, h) < 1:
-                    continue
-                area = w * h
-                ar = max(w, h) / min(w, h)
-                ext = cv2.contourArea(cnt) / area if area > 0 else 0
-                if 60 < area < 4000 and 1.2 < ar < 6.0 and ext > 0.35:
-                    boxes.append((rect, ext, (rcx, rcy)))
             kept = []
-            for b, e, (x, y) in sorted(boxes, key=lambda t: -(t[0][1][0] * t[0][1][1])):
-                if all(abs(x - ox) > 12 or abs(y - oy) > 12 for _, _, (ox, oy) in kept):
-                    kept.append((b, e, (x, y)))
+            for pct in (98.0, 98.5, 99.0, 99.3, 99.6, 99.8):
+                thr = float(np.percentile(tophat, pct))
+                _, tm = cv2.threshold(tophat, thr, 255, cv2.THRESH_BINARY)
+                tm = cv2.morphologyEx(tm, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+                cnts, _ = cv2.findContours(tm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                boxes = []
+                for cnt in cnts:
+                    rect = cv2.minAreaRect(cnt)
+                    (rcx, rcy), (w, h), ang = rect
+                    if min(w, h) < 2:
+                        continue
+                    area = w * h
+                    ar = max(w, h) / min(w, h)
+                    ext = cv2.contourArea(cnt) / area if area > 0 else 0
+                    if not (80 < area < 900 and 1.3 < ar < 5.0 and ext > 0.45):
+                        continue
+                    # contrast gate: airframe must be clearly brighter than its surroundings
+                    x, y, bw, bh = cv2.boundingRect(cnt)
+                    x0, y0 = max(0, x - 6), max(0, y - 6)
+                    x1, y1 = min(1600, x + bw + 6), min(1600, y + bh + 6)
+                    ring = gray_d[y0:y1, x0:x1]
+                    inner = gray_d[y:y + bh, x:x + bw]
+                    if ring.size == 0 or inner.size == 0:
+                        continue
+                    if float(inner.mean()) - float(ring.mean()) < 18:
+                        continue
+                    boxes.append((rect, ext, (rcx, rcy)))
+                boxes.sort(key=lambda t: -(t[0][1][0] * t[0][1][1]))
+                kept = []
+                for b, e, (x, y) in boxes:
+                    if all(abs(x - ox) > 14 or abs(y - oy) > 14 for _, _, (ox, oy) in kept):
+                        kept.append((b, e, (x, y)))
+                    if len(kept) >= 40:
+                        break
+                if len(kept) < 40 or pct >= 99.8:
+                    break  # converged, or max strictness reached
             output_img = detail
             for (b, e, _) in kept:
                 num_planes += 1
