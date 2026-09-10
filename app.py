@@ -292,15 +292,20 @@ def handler(event, context):
                     # WING TEST (cruciform signature): a real airframe silhouette has deep
                     # concavities where wings and tail meet the fuselage. Terminal roofs
                     # and buildings are convex blocks (0 significant defects) and are rejected.
+                    if len(cnt) < 5:
+                        continue
                     hull = cv2.convexHull(cnt, returnPoints=False)
                     ndef = 0
-                    if hull is not None and len(hull) > 3:
-                        dfx = cv2.convexityDefects(cnt, hull)
-                        if dfx is not None:
-                            long_side = max(w, h)
-                            for i in range(dfx.shape[0]):
-                                if dfx[i, 0, 3] / 256.0 > 0.12 * long_side:
-                                    ndef += 1
+                    try:
+                        if hull is not None and len(hull) > 3:
+                            dfx = cv2.convexityDefects(cnt, hull)
+                            if dfx is not None:
+                                long_side = max(w, h)
+                                for i in range(dfx.shape[0]):
+                                    if dfx[i, 0, 3] / 256.0 > 0.12 * long_side:
+                                        ndef += 1
+                    except Exception:
+                        continue
                     if ndef < 3:
                         continue
                     boxes.append((rect, ext, (rcx, rcy)))
