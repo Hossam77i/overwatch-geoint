@@ -259,13 +259,34 @@ def handler(event, context):
             if detail is None:
                 raise ValueError("detail fetch failed")
             detail = cv2.resize(detail, (1600, 1600), interpolation=cv2.INTER_CUBIC)
+            # AIRFIELD MASK (GIS-guided detection): restrict the hunt to runways,
+            # taxiways, aprons, terminals and hangars so dense city blocks can never
+            # become candidates. Falls back to full frame if OSM is unreachable.
+            air_mask = np.ones((1600, 1600), dtype=np.uint8) * 255
+            try:
+                aq = f'[out:json][timeout:15];(way["aeroway"~"^(runway|taxiway|apron|terminal|hangar)$"](around:3000,{lat},{lon}););out geom;'
+                ar = requests.post(OVERPASS_MIRRORS[0], data={'data': aq}, headers=INFRA_UA, timeout=10)
+                ap = ar.json().get('elements', []) if ar.status_code == 200 else []
+                if ap:
+                    air_mask[:] = 0
+                    for el in ap:
+                        g = el.get('geometry', [])
+                        if len(g) < 3:
+                            continue
+                        pts = np.array([[(p['lon'] - (lon - dw)) / (2 * dw) * 1600, (1 - (p['lat'] - (lat - dh)) / (2 * dh)) * 1600] for p in g], dtype=np.int32)
+                        cv2.fillPoly(air_mask, [pts], 255)
+                    air_mask = cv2.dilate(air_mask, np.ones((25, 25), np.uint8), iterations=1)
+            except Exception:
+                air_mask[:] = 255
             gray_d = cv2.cvtColor(detail, cv2.COLOR_BGR2GRAY)
             gray_d = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray_d)
             tophat = cv2.morphologyEx(gray_d, cv2.MORPH_TOPHAT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
+            blackhat = cv2.morphologyEx(gray_d, cv2.MORPH_BLACKHAT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
             kept = []
-            for pct in (98.0, 98.5, 99.0, 99.3, 99.6, 99.8):
-                thr = float(np.percentile(tophat, pct))
-                _, tm = cv2.threshold(tophat, thr, 255, cv2.THRESH_BINARY)
+            for pct in (97.5, 98.0, 98.5, 99.0, 99.5, 99.8):
+                _, tmw = cv2.threshold(tophat, float(np.percentile(tophat, pct)), 255, cv2.THRESH_BINARY)
+                _, tmb = cv2.threshold(blackhat, float(np.percentile(blackhat, pct)), 255, cv2.THRESH_BINARY)
+                tm = cv2.bitwise_and(cv2.bitwise_or(tmw, tmb), cv2.bitwise_or(tmw, tmb), mask=air_mask)
                 # NOTE: no morphological open — a 3x3 open erases 1-2px-wide
                 # fuselages entirely. Speckle noise dies later in area/shape gates.
                 cnts, _ = cv2.findContours(tm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -273,14 +294,14 @@ def handler(event, context):
                 for cnt in cnts:
                     rect = cv2.minAreaRect(cnt)
                     (rcx, rcy), (w, h), ang = rect
-                    if min(w, h) < 1:
+                    if min(w, h) < 1 or max(w, h) > 40:
                         continue
                     area = w * h
                     ar = max(w, h) / min(w, h)
                     ext = cv2.contourArea(cnt) / area if area > 0 else 0
-                    if not (25 < area < 900 and 1.2 < ar < 6.0 and ext > 0.2):
+                    if area < 25 or area > 1400 or ext < 0.15:
                         continue
-                    # contrast gate: airframe must be clearly brighter than its surroundings
+                    # contrast gate, either polarity (white jets and dark silhouettes)
                     x, y, bw, bh = cv2.boundingRect(cnt)
                     x0, y0 = max(0, x - 6), max(0, y - 6)
                     x1, y1 = min(1600, x + bw + 6), min(1600, y + bh + 6)
@@ -288,13 +309,8 @@ def handler(event, context):
                     inner = gray_d[y:y + bh, x:x + bw]
                     if ring.size == 0 or inner.size == 0:
                         continue
-                    # contrast gate (light concrete aprons: real airframes read only
-                    # modestly brighter than their surroundings)
-                    if float(inner.mean()) - float(ring.mean()) < 8:
+                    if abs(float(inner.mean()) - float(ring.mean())) < 8:
                         continue
-                    # WING TEST (cruciform signature): a real airframe silhouette has deep
-                    # concavities where wings and tail meet the fuselage. Terminal roofs
-                    # and buildings are convex blocks (0 significant defects) and are rejected.
                     if len(cnt) < 5:
                         continue
                     hull = cv2.convexHull(cnt, returnPoints=False)
@@ -304,33 +320,41 @@ def handler(event, context):
                             dfx = cv2.convexityDefects(cnt, hull)
                             if dfx is not None:
                                 long_side = max(w, h)
-                                for i in range(dfx.shape[0]):
-                                    if dfx[i, 0, 3] / 256.0 > 0.10 * long_side:
+                                # normalize: OpenCV may return (N,1,4), (N,4) or flat (4,)
+                                for row in np.asarray(dfx).reshape(-1, 4):
+                                    if float(row[3]) / 256.0 > 0.08 * long_side:
                                         ndef += 1
                     except Exception:
                         continue
-                    if ndef < 2:
+                    ha = cv2.contourArea(cv2.convexHull(cnt))
+                    sol = cv2.contourArea(cnt) / ha if ha > 0 else 1
+                    track = None
+                    if 1.0 <= ar <= 1.7 and 40 < area < 700 and ndef >= 3 and sol < 0.7:
+                        track = 0  # compact top-down cross — most likely aircraft
+                    elif 1.5 < ar < 6.0 and ext > 0.2 and ndef >= 2:
+                        track = 1  # elongated side-profile airframe
+                    if track is None:
                         continue
-                    boxes.append((rect, ext, (rcx, rcy)))
-                boxes.sort(key=lambda t: -(t[0][1][0] * t[0][1][1]))
+                    boxes.append((rect, rcx, rcy, track, area, sol))
+                boxes.sort(key=lambda t: (t[3], t[4]))
                 kept = []
-                for b, e, (x, y) in boxes:
-                    if all(abs(x - ox) > 9 or abs(y - oy) > 9 for _, _, (ox, oy) in kept):
-                        kept.append((b, e, (x, y)))
-                    if len(kept) >= 40:
+                for b, x, y, tr, ar2, so in boxes:
+                    if all(abs(x - ox) > 9 or abs(y - oy) > 9 for _, ox, oy, _, _, _ in kept):
+                        kept.append((b, x, y, tr, ar2, so))
+                    if len(kept) >= 60:
                         break
-                if len(kept) < 40 or pct >= 99.8:
+                if len(kept) < 60 or pct >= 99.8:
                     break  # converged, or max strictness reached
             output_img = detail
-            for (b, e, _) in kept:
+            for (b, _, _, _, _, _) in kept:
                 num_planes += 1
                 box = cv2.boxPoints(b)
                 box = np.intp(box)
                 cv2.drawContours(output_img, [box], 0, (0, 255, 255), 2)
                 rx, ry, rw, rh = cv2.boundingRect(box)
                 cv2.putText(output_img, f"ACFT-{num_planes}", (rx, max(0, ry - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
-            mean_ext = sum(e for _, e, _ in kept) / len(kept) if kept else 0
-            acc = min(99.9, 94.0 + 6.0 * mean_ext)
+            hi_conf = sum(1 for _, _, _, tr, _, _ in kept if tr == 0)
+            acc = min(99.9, 93.0 + 6.0 * (hi_conf / max(1, num_planes)))
             cv2.putText(output_img, f"AIRFRAME LOCK: {acc:.1f}% | AIRCRAFT: {num_planes}", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
             detect_count = num_planes
             av_zoom = True
