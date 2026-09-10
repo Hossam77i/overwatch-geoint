@@ -11,7 +11,7 @@ INFRA_COUNTRIES = {'EGYPT': 'EG', 'IRAN': 'IR', 'RUSSIA': 'RU', 'NORTH_KOREA': '
 OVERPASS_MIRRORS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
 INFRA_UA = {"User-Agent": "Overwatch-GEOINT/1.0 (contact: overwatch demo; cache 24h)"}
 
-def _refresh_country(c):
+def _refresh_country(c, timeout=10):
     """Fetch 4 OSM categories for one country with rate-limit guards. Returns asset count."""
     iso = INFRA_COUNTRIES.get(c, 'EG')
     queries = {
@@ -25,7 +25,7 @@ def _refresh_country(c):
         el = []
         for m in OVERPASS_MIRRORS:
             try:
-                r = requests.post(m, data={'data': q}, headers=INFRA_UA, timeout=10)
+                r = requests.post(m, data={'data': q}, headers=INFRA_UA, timeout=timeout)
                 if r.status_code == 200:
                     el = r.json().get('elements', [])
                     break
@@ -94,13 +94,14 @@ def handler(event, context):
             if body.get('action') == 'refresh_infra':
                 countries = [(body.get('country') or 'EGYPT').upper()]
             elif body.get('action') == 'refresh_all_infra':
-                countries = ['EGYPT', 'IRAN', 'RUSSIA', 'NORTH_KOREA', 'SAUDI_ARABIA']
+                # small countries first so a slow giant (RU) can never starve the rest
+                countries = ['SAUDI_ARABIA', 'NORTH_KOREA', 'IRAN', 'EGYPT', 'RUSSIA']
             else:  # daily EventBridge backup: rotate one country/day (fits 60s Lambda)
                 countries = [['EGYPT', 'IRAN', 'RUSSIA', 'NORTH_KOREA', 'SAUDI_ARABIA'][int(time.time() // 86400) % 5]]
             done, errors = {}, {}
             for c in countries:
                 try:
-                    done[c] = _refresh_country(c)
+                    done[c] = _refresh_country(c, timeout=25 if c == 'RUSSIA' else 10)
                 except Exception as e:
                     errors[c] = str(e)[:120]
                 time.sleep(3)
