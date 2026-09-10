@@ -238,7 +238,9 @@
             const div = document.createElement("div");
             div.className = `log-entry ${type}`;
             div.innerHTML = `> ${msg}`;
-            document.getElementById("logs").prepend(div);
+            const feed = document.getElementById("logs");
+            feed.prepend(div);
+            while (feed.children.length > 80) feed.removeChild(feed.lastChild);
         }
 
         function clearOverlays() {
@@ -250,6 +252,7 @@
             clearOverlays();
             map.flyTo([20.0, 0.0], 3, {duration: 1.5});
             document.getElementById('locationSearch').value = '';
+            document.getElementById('suggestBox').style.display = 'none';
             document.getElementById('countrySelect').value = 'GLOBAL';
             onCountrySelect();
             logIntel("System Reset to Global View.", "success");
@@ -291,9 +294,11 @@
         };
 
         async function loadInfraFromDB(c) {
+            const liveMsg = () => document.getElementById("infraLive");
             try {
                 const r = await fetch(TRIGGER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_infra", country: c }) });
                 const j = await r.json();
+                if (liveMsg()) liveMsg().remove();
                 if (j.cached && j.assets && j.assets.length) {
                     const body = document.getElementById("infraBody");
                     const stale = j.stale ? ` <span style="color:#ffaa00">· cache ${j.age_hours}h old, refreshing…</span>` : ` <span style="color:#0f0">· live DB ${j.age_hours}h</span>`;
@@ -302,7 +307,7 @@
                     logIntel(`${c}: ${j.assets.length} live DB nodes merged.`, "success");
                 }
                 if (!j.cached || j.stale) fetch(TRIGGER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refresh_infra", country: c }) });
-            } catch (e) { /* static fallback stays */ }
+            } catch (e) { const l = document.getElementById("infraLive"); if (l) l.textContent = "⚠ Live DB unreachable — showing tracked baseline."; }
         }
 
         function renderInfra(c) {
@@ -320,6 +325,7 @@
             title.textContent = `${m.flag} ${m.name} — Infrastructure`;
             body.innerHTML = `<div style="color:#fff;margin-bottom:4px;">${m.summary}</div><div class="infra-stat"><span class="infra-chip"><b>${m.assets.length}</b> tracked</span>${chips}</div>${rows}`;
             logIntel(`${m.name}: ${m.assets.length} infrastructure nodes loaded.`, "success");
+            body.innerHTML += `<div id="infraLive" style="color:#888;font-size:0.8em;margin-top:6px;">⏳ Syncing live DB…</div>`;
             loadInfraFromDB(c);
         }
 

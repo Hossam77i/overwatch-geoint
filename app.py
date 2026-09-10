@@ -7,6 +7,44 @@ def deg2num(lat_deg, lon_deg, zoom):
     ytile = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
     return (xtile, ytile)
 
+INFRA_COUNTRIES = {'EGYPT': 'EG', 'IRAN': 'IR', 'RUSSIA': 'RU', 'NORTH_KOREA': 'KP', 'SAUDI_ARABIA': 'SA'}
+OVERPASS_MIRRORS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
+INFRA_UA = {"User-Agent": "Overwatch-GEOINT/1.0 (contact: overwatch demo; cache 24h)"}
+
+def _refresh_country(c):
+    """Fetch 4 OSM categories for one country with rate-limit guards. Returns asset count."""
+    iso = INFRA_COUNTRIES.get(c, 'EG')
+    queries = {
+        'Aviation': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["aeroway"="aerodrome"](area.a);way["aeroway"="aerodrome"](area.a););out center 80;',
+        'Energy': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["power"="plant"](area.a);way["power"="plant"](area.a););out center 80;',
+        'Maritime': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["industrial"="port"](area.a);way["industrial"="port"](area.a);node["seamark:type"="harbour"](area.a););out center 80;',
+        'Military': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["military"](area.a);way["military"](area.a);node["landuse"="military"](area.a);way["landuse"="military"](area.a););out center 60;',
+    }
+    assets = []
+    for cat, q in queries.items():
+        el = []
+        for m in OVERPASS_MIRRORS:
+            try:
+                r = requests.post(m, data={'data': q}, headers=INFRA_UA, timeout=10)
+                if r.status_code == 200:
+                    el = r.json().get('elements', [])
+                    break
+                time.sleep(2)
+            except Exception:
+                time.sleep(2)
+                continue
+        for e in el[:80]:
+            tags = e.get('tags', {})
+            nm = tags.get('name') or tags.get('operator') or f"Unnamed {cat} site"
+            la, lo = e.get('lat'), e.get('lon')
+            if la is None and 'center' in e: la, lo = e['center'].get('lat'), e['center'].get('lon')
+            if la is None: continue
+            assets.append({'t': cat, 'n': nm[:80], 'd': (tags.get('operator') or cat)[:60], 's': 'Operational', 'c': 'ib-op', 'lat': round(float(la), 4), 'lon': round(float(lo), 4), 'q': nm[:60], 'k': 'macro'})
+        time.sleep(2)  # rate-limit guard: never hammer Overpass
+    boto3.resource('dynamodb', region_name='us-east-1').Table('overwatch-infra-cache').put_item(
+        Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:300])})
+    return len(assets[:300])
+
 def handler(event, context):
     if event.get('httpMethod') == 'OPTIONS':
         return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "*", "Access-Control-Allow-Headers": "*"}, "body": ""}
@@ -50,44 +88,22 @@ def handler(event, context):
         except Exception as e:
             return {"statusCode": 500, "headers": {"Access-Control-Allow-Origin": "*"}, "body": json.dumps({"error": str(e)})}
 
-    # --- INFRA REFRESH: Overpass with rate-limit guards (1 country/step, sequential, sleeps) ---
-    if body.get('action') == 'refresh_infra' or (not event.get('httpMethod') and not body.get('action')):
+    # --- INFRA REFRESH: single country (manual) or all 5 (daily auto). Per-country isolation: one failure never kills the rest. ---
+    if body.get('action') in ('refresh_infra', 'refresh_all_infra') or (not event.get('httpMethod') and not body.get('action')):
         try:
-            c = (body.get('country') or 'EGYPT').upper()
-            iso = {'EGYPT': 'EG', 'IRAN': 'IR', 'RUSSIA': 'RU', 'NORTH_KOREA': 'KP', 'SAUDI_ARABIA': 'SA'}.get(c, 'EG')
-            queries = {
-                'Aviation': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["aeroway"="aerodrome"](area.a);way["aeroway"="aerodrome"](area.a););out center 80;',
-                'Energy': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["power"="plant"](area.a);way["power"="plant"](area.a););out center 80;',
-                'Maritime': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["industrial"="port"](area.a);way["industrial"="port"](area.a);node["seamark:type"="harbour"](area.a););out center 80;',
-                'Military': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["military"](area.a);way["military"](area.a););out center 60;',
-            }
-            mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
-            headers = {"User-Agent": "Overwatch-GEOINT/1.0 (contact: overwatch demo; cache 24h)"}
-            assets = []
-            for cat, q in queries.items():
-                el = []
-                for m in mirrors:
-                    try:
-                        r = requests.post(m, data={'data': q}, headers=headers, timeout=10)
-                        if r.status_code == 200:
-                            el = r.json().get('elements', [])
-                            break
-                        time.sleep(2)
-                    except Exception:
-                        time.sleep(2)
-                        continue
-                for e in el[:80]:
-                    tags = e.get('tags', {})
-                    nm = tags.get('name') or tags.get('operator') or f"Unnamed {cat} site"
-                    la, lo = e.get('lat'), e.get('lon')
-                    if la is None and 'center' in e: la, lo = e['center'].get('lat'), e['center'].get('lon')
-                    if la is None: continue
-                    assets.append({'t': cat, 'n': nm[:80], 'd': (tags.get('operator') or cat)[:60], 's': 'Operational', 'c': 'ib-op', 'lat': round(float(la), 4), 'lon': round(float(lo), 4), 'q': nm[:60], 'k': 'macro'})
-                time.sleep(2)  # rate-limit guard: never hammer Overpass
-            boto3.resource('dynamodb', region_name='us-east-1').Table('overwatch-infra-cache').put_item(
-                Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:300])})
+            if body.get('action') == 'refresh_infra':
+                countries = [(body.get('country') or 'EGYPT').upper()]
+            else:
+                countries = ['EGYPT', 'IRAN', 'RUSSIA', 'NORTH_KOREA', 'SAUDI_ARABIA']
+            done, errors = {}, {}
+            for c in countries:
+                try:
+                    done[c] = _refresh_country(c)
+                except Exception as e:
+                    errors[c] = str(e)[:120]
+                time.sleep(3)
             return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"},
-                "body": json.dumps({"refreshed": True, "country": c, "count": len(assets[:300])})}
+                "body": json.dumps({"refreshed": True, "done": done, "errors": errors})}
         except Exception as e:
             return {"statusCode": 500, "headers": {"Access-Control-Allow-Origin": "*"}, "body": json.dumps({"error": str(e)})}
 
