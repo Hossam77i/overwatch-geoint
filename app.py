@@ -10,8 +10,25 @@ def deg2num(lat_deg, lon_deg, zoom):
 def handler(event, context):
     print("[*] Overwatch GEOINT Triggered - HIGH RES TACTICAL MACRO MODE.")
     
+    body = json.loads(event.get('body', '{}'))
+    
+    # --- MACRO OSINT PROXY (Bypass Local IP Blocking) ---
+    if body.get('action') == 'macro_osint':
+        try:
+            resp = requests.post("https://overpass-api.de/api/interpreter", data=body.get('query', ''), timeout=15)
+            return {
+                "statusCode": resp.status_code,
+                "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"},
+                "body": resp.text
+            }
+        except Exception as e:
+            return {
+                "statusCode": 500,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"error": str(e)})
+            }
+    
     try:
-        body = json.loads(event.get('body', '{}'))
         lat = float(body.get('lat', 30.5852))
         lon = float(body.get('lon', 32.3503))
         scan_filter = body.get('filter', 'maritime')
