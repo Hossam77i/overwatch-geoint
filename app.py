@@ -63,31 +63,35 @@ def handler(event, context):
         
         # --- ADVANCED SUB-TILING STITCHING ALGORITHM ---
         if is_macro_scan:
-            # Sea-to-Sea Continental Scan: Divide massive area into multiple overlapping sub-tiles
-            # to preserve maximum optical resolution without hitting ArcGIS timeouts
-            url_list = []
+            import concurrent.futures
             num_chunks = 4  # 100km + 100km + 100km + 100km concept
             lat_step = (north - south) / num_chunks
+            chunk_h = img_h // num_chunks
             
-            chunks = []
-            # Fetch from North to South to stitch top-to-bottom
-            for i in range(num_chunks):
+            def fetch_chunk(i):
                 chunk_north = north - (i * lat_step)
                 chunk_south = chunk_north - lat_step
-                chunk_h = img_h // num_chunks
-                
                 url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{chunk_south},{east},{chunk_north}&bboxSR=4326&imageSR=4326&size={img_w},{chunk_h}&f=image"
-                r = requests.get(url)
+                try:
+                    r = requests.get(url, timeout=12)
+                    img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
+                    chunk_img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                    if chunk_img is not None:
+                        return i, chunk_img
+                except:
+                    pass
+                return i, np.zeros((chunk_h, img_w, 3), dtype=np.uint8)
                 
-                # Decode chunk in memory
-                img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
-                chunk_img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-                if chunk_img is not None:
-                    chunks.append(chunk_img)
-                else:
-                    chunks.append(np.zeros((chunk_h, img_w, 3), dtype=np.uint8))
-            
-            # Stitch all chunks into one massive, continuous map
+            chunks_dict = {}
+            # Fetch all 4 massive tiles simultaneously in parallel threads
+            with concurrent.futures.ThreadPoolExecutor(max_workers=num_chunks) as executor:
+                futures = [executor.submit(fetch_chunk, i) for i in range(num_chunks)]
+                for future in concurrent.futures.as_completed(futures):
+                    i, chunk_img = future.result()
+                    chunks_dict[i] = chunk_img
+                    
+            # Stitch all chunks into one continuous map in the correct North-to-South order
+            chunks = [chunks_dict[i] for i in range(num_chunks)]
             img = cv2.vconcat(chunks)
         else:
             # Standard Tactical Scan
