@@ -73,13 +73,15 @@ def handler(event, context):
                 chunk_south = chunk_north - lat_step
                 url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{chunk_south},{east},{chunk_north}&bboxSR=4326&imageSR=4326&size={img_w},{chunk_h}&f=image"
                 try:
-                    r = requests.get(url, timeout=12)
+                    import time
+                    time.sleep(i * 0.2) # Stagger to prevent ArcGIS throttling
+                    r = requests.get(url, timeout=25)
                     img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
                     chunk_img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                     if chunk_img is not None:
                         return i, chunk_img
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Chunk {i} failed: {e}")
                 return i, np.zeros((chunk_h, img_w, 3), dtype=np.uint8)
                 
             chunks_dict = {}
