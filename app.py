@@ -31,7 +31,8 @@ def _refresh_country(c, timeout=10):
         for cat, f in filt.items():
             queries[cat] = f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;{f.format(g="(area.a)")};out center 80;'
     assets = []
-    for key, q in queries.items():
+    table = boto3.resource('dynamodb', region_name='us-east-1').Table('overwatch-infra-cache')
+    for idx, (key, q) in enumerate(queries.items()):
         cat = key.split('#')[0]
         el = []
         for m in OVERPASS_MIRRORS:
@@ -52,7 +53,12 @@ def _refresh_country(c, timeout=10):
             if la is None: continue
             assets.append({'t': cat, 'n': nm[:80], 'd': (tags.get('operator') or cat)[:60], 's': 'Operational', 'c': 'ib-op', 'lat': round(float(la), 4), 'lon': round(float(lo), 4), 'q': nm[:60], 'k': 'macro'})
         time.sleep(2)  # rate-limit guard: never hammer Overpass
-    boto3.resource('dynamodb', region_name='us-east-1').Table('overwatch-infra-cache').put_item(
+        if idx % 2 == 1:  # checkpoint: a timeout kill never loses collected progress
+            try:
+                table.put_item(Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:300])})
+            except Exception:
+                pass
+    table.put_item(
         Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:300])})
     return len(assets[:300])
 
