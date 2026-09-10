@@ -14,14 +14,25 @@ INFRA_UA = {"User-Agent": "Overwatch-GEOINT/1.0 (contact: overwatch demo; cache 
 def _refresh_country(c, timeout=10):
     """Fetch 4 OSM categories for one country with rate-limit guards. Returns asset count."""
     iso = INFRA_COUNTRIES.get(c, 'EG')
-    queries = {
-        'Aviation': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["aeroway"="aerodrome"](area.a);way["aeroway"="aerodrome"](area.a););out center 80;',
-        'Energy': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["power"="plant"](area.a);way["power"="plant"](area.a););out center 80;',
-        'Maritime': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["industrial"="port"](area.a);way["industrial"="port"](area.a);node["seamark:type"="harbour"](area.a););out center 80;',
-        'Military': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["military"](area.a);way["military"](area.a);node["landuse"="military"](area.a);way["landuse"="military"](area.a););out center 60;',
+    filt = {
+        'Aviation': '(node["aeroway"="aerodrome"]{g};way["aeroway"="aerodrome"]{g};)',
+        'Energy': '(node["power"="plant"]{g};way["power"="plant"]{g};)',
+        'Maritime': '(node["industrial"="port"]{g};way["industrial"="port"]{g};node["seamark:type"="harbour"]{g};)',
+        'Military': '(node["military"]{g};way["military"]{g};node["landuse"="military"]{g};way["landuse"="military"]{g};)',
     }
+    queries = {}
+    if c == 'RUSSIA':
+        # full-country area query times out: 3 asset-zone bboxes instead
+        for i, (s, w, n, e) in enumerate([(50, 28, 62, 46), (66, 30, 70, 44), (42, 128, 47, 138)]):
+            g = f"({s},{w},{n},{e})"
+            for cat, f in filt.items():
+                queries[f"{cat}#R{i}"] = f"[out:json][timeout:25];{f.format(g=g)};out center 60;"
+    else:
+        for cat, f in filt.items():
+            queries[cat] = f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;{f.format(g="(area.a)")};out center 80;'
     assets = []
-    for cat, q in queries.items():
+    for key, q in queries.items():
+        cat = key.split('#')[0]
         el = []
         for m in OVERPASS_MIRRORS:
             try:
