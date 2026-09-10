@@ -266,18 +266,19 @@ def handler(event, context):
             for pct in (98.0, 98.5, 99.0, 99.3, 99.6, 99.8):
                 thr = float(np.percentile(tophat, pct))
                 _, tm = cv2.threshold(tophat, thr, 255, cv2.THRESH_BINARY)
-                tm = cv2.morphologyEx(tm, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+                # NOTE: no morphological open — a 3x3 open erases 1-2px-wide
+                # fuselages entirely. Speckle noise dies later in area/shape gates.
                 cnts, _ = cv2.findContours(tm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 boxes = []
                 for cnt in cnts:
                     rect = cv2.minAreaRect(cnt)
                     (rcx, rcy), (w, h), ang = rect
-                    if min(w, h) < 2:
+                    if min(w, h) < 1:
                         continue
                     area = w * h
                     ar = max(w, h) / min(w, h)
                     ext = cv2.contourArea(cnt) / area if area > 0 else 0
-                    if not (25 < area < 900 and 1.2 < ar < 6.0 and ext > 0.35):
+                    if not (25 < area < 900 and 1.2 < ar < 6.0 and ext > 0.2):
                         continue
                     # contrast gate: airframe must be clearly brighter than its surroundings
                     x, y, bw, bh = cv2.boundingRect(cnt)
@@ -287,7 +288,9 @@ def handler(event, context):
                     inner = gray_d[y:y + bh, x:x + bw]
                     if ring.size == 0 or inner.size == 0:
                         continue
-                    if float(inner.mean()) - float(ring.mean()) < 18:
+                    # contrast gate (light concrete aprons: real airframes read only
+                    # modestly brighter than their surroundings)
+                    if float(inner.mean()) - float(ring.mean()) < 8:
                         continue
                     # WING TEST (cruciform signature): a real airframe silhouette has deep
                     # concavities where wings and tail meet the fuselage. Terminal roofs
@@ -312,7 +315,7 @@ def handler(event, context):
                 boxes.sort(key=lambda t: -(t[0][1][0] * t[0][1][1]))
                 kept = []
                 for b, e, (x, y) in boxes:
-                    if all(abs(x - ox) > 14 or abs(y - oy) > 14 for _, _, (ox, oy) in kept):
+                    if all(abs(x - ox) > 9 or abs(y - oy) > 9 for _, _, (ox, oy) in kept):
                         kept.append((b, e, (x, y)))
                     if len(kept) >= 40:
                         break
