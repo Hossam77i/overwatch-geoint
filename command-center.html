@@ -39,6 +39,18 @@
         .hvt-list li { padding: 6px 0; border-bottom: 1px dashed #333; cursor: pointer; transition: 0.2s; font-size: 0.85em; }
         .hvt-list li:hover { color: #fff; padding-left: 5px; border-bottom-color: #00ffcc; }
         .hvt-list li span { color: #888; font-size: 0.8em; float: right; }
+        .infra-stat { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+        .infra-chip { border: 1px solid #333; padding: 3px 8px; font-size: 0.75em; color: #ccc; background: #0a0a0a; }
+        .infra-chip b { color: #fff; }
+        .infra-item { padding: 6px 0; border-bottom: 1px dashed #333; cursor: pointer; font-size: 0.82em; }
+        .infra-item:hover { color: #fff; padding-left: 5px; border-bottom-color: #00ffcc; }
+        .infra-badge { float: right; font-size: 0.75em; padding: 1px 6px; border: 1px solid; }
+        .ib-op { color: #0f0; border-color: #0f0; } .ib-deg { color: #ffaa00; border-color: #ffaa00; }
+        .ib-crit { color: #ff0055; border-color: #ff0055; }
+        .search-wrap { position: relative; }
+        #suggestBox { position: absolute; top: 100%; left: 0; right: 0; background: #0a0a0a; border: 1px solid #00ffcc; border-top: none; z-index: 2000; max-height: 260px; overflow-y: auto; display: none; }
+        #suggestBox div { padding: 7px 10px; font-size: 0.8em; cursor: pointer; border-bottom: 1px dashed #222; color: #ccc; }
+        #suggestBox div:hover, #suggestBox div.active { background: rgba(0,255,204,0.15); color: #fff; }
 
         .macro-options label { display: block; font-size: 0.85em; margin-bottom: 5px; cursor: pointer; color: #ccc; }
         .macro-options input { margin-right: 8px; vertical-align: middle; }
@@ -126,7 +138,7 @@
                 <option value="SAUDI_ARABIA">🇸🇦 Saudi Arabia</option>
             </select>
 
-            <input type="text" id="locationSearch" placeholder="Target Coordinate/City" />
+            <div class="search-wrap"><input type="text" id="locationSearch" placeholder="Target Coordinate/City" autocomplete="off" /><div id="suggestBox"></div></div>
             <select id="scanFilter">
                 <option value="maritime">🚢 Micro: Maritime</option>
                 <option value="energy">🛢️ Micro: Energy</option>
@@ -165,6 +177,11 @@
                 <ul class="hvt-list" id="targetList-delta">
                     <li data-country="SAUDI_ARABIA" onclick="quickScan('Ras Tanura', 'energy')">🇸🇦 Ras Tanura Refinery <span>Micro: Energy</span></li>
                 </ul>
+            </div>
+
+            <div class="panel" id="infraPanel">
+                <h3 id="infraTitle">🏗️ Country Infrastructure</h3>
+                <div id="infraBody" style="font-size:0.85em;color:#ccc;">Select a country for a professional infrastructure brief.</div>
             </div>
 
             <div class="panel macro-options">
@@ -238,15 +255,86 @@
             logIntel("System Reset to Global View.", "success");
         }
 
+        const COUNTRY_INFRA = {
+            EGYPT: { flag: "🇪🇬", name: "Egypt", center: [26.8206, 30.8025], zoom: 6, summary: "Chokepoint state: Suez Canal + 3 ports + 2 airbases + 2 power plants under watch.",
+                assets: [
+                    { t: "Maritime", n: "Suez Canal (Ismailia sector)", d: "Chokepoint · 12km convoy spacing", s: "Operational", c: "ib-op", lat: 30.42, lon: 32.34, q: "Suez Canal", k: "maritime" },
+                    { t: "Maritime", n: "Alexandria Port", d: "Container + naval berths", s: "Operational", c: "ib-op", lat: 31.19, lon: 29.87, q: "Alexandria Port, Egypt", k: "maritime" },
+                    { t: "Military", n: "Alexandria Naval Base", d: "Surface fleet HQ", s: "Elevated", c: "ib-deg", lat: 31.19, lon: 29.87, q: "Alexandria Naval Base", k: "macro" },
+                    { t: "Aviation", n: "Cairo International Airport", d: "Hub · dual runway ops", s: "Operational", c: "ib-op", lat: 30.1219, lon: 31.4056, q: "Cairo International Airport", k: "aviation" },
+                    { t: "Energy", n: "Suez Thermal Power Plant", d: "650MW · grid anchor", s: "Degraded", c: "ib-deg", lat: 29.9333, lon: 32.55, q: "Suez Thermal Power Plant", k: "energy" }
+                ] },
+            IRAN: { flag: "🇮🇷", name: "Iran / Gulf", center: [32.4279, 53.6880], zoom: 5, summary: "Gulf pressure zone: Hormuz crisis watch + Bandar Abbas + Bushehr nuclear.",
+                assets: [
+                    { t: "Maritime", n: "Strait of Hormuz", d: "CRISIS · tanker transit at risk", s: "Critical", c: "ib-crit", lat: 26.56, lon: 56.27, q: "Strait of Hormuz", k: "macro" },
+                    { t: "Military", n: "Bandar Abbas Naval Base", d: "IRGCN fast-attack staging", s: "Elevated", c: "ib-deg", lat: 27.14, lon: 56.05, q: "Bandar Abbas Naval Base", k: "macro" },
+                    { t: "Energy", n: "Bushehr Nuclear Power Plant", d: "1GW VVER · IAEA watched", s: "Operational", c: "ib-op", lat: 28.82, lon: 50.88, q: "Bushehr Nuclear Power Plant", k: "energy" }
+                ] },
+            RUSSIA: { flag: "🇷🇺", name: "Russia", center: [61.5240, 105.3188], zoom: 3, summary: "Two-fleet posture: Northern Fleet + Pacific Fleet + strategic airlift hub.",
+                assets: [
+                    { t: "Aviation", n: "Sheremetyevo Airport", d: "Strategic airlift + intl hub", s: "Operational", c: "ib-op", lat: 55.9726, lon: 37.4146, q: "Sheremetyevo International Airport", k: "aviation" },
+                    { t: "Military", n: "Pacific Fleet HQ (Vladivostok)", d: "SSN/SSGN + surface group", s: "Elevated", c: "ib-deg", lat: 43.1155, lon: 131.8855, q: "Vladivostok, Russia", k: "macro" },
+                    { t: "Military", n: "Severomorsk Northern Fleet", d: "SSBN bastion · Kola", s: "Elevated", c: "ib-deg", lat: 69.06, lon: 33.42, q: "Severomorsk", k: "macro" },
+                    { t: "Energy", n: "Kursk Nuclear Power Plant", d: "RBMK successor units", s: "Operational", c: "ib-op", lat: 51.67, lon: 35.6, q: "Kursk Nuclear Power Plant", k: "energy" }
+                ] },
+            NORTH_KOREA: { flag: "🇰🇵", name: "North Korea", center: [40.3399, 127.5101], zoom: 6, summary: "Closed theater: Sunan air gateway + Yongbyon nuclear + east-coast naval node.",
+                assets: [
+                    { t: "Aviation", n: "Pyongyang Sunan Airport", d: "Sole intl gateway", s: "Operational", c: "ib-op", lat: 39.2241, lon: 125.6702, q: "Pyongyang Sunan International Airport", k: "aviation" },
+                    { t: "Energy", n: "Yongbyon Nuclear Center", d: "5MWe + enrichment watch", s: "Elevated", c: "ib-deg", lat: 39.8, lon: 125.75, q: "Yongbyon Nuclear Scientific Research Center", k: "energy" },
+                    { t: "Military", n: "Wonsan Naval Base", d: "East Fleet · missile boats", s: "Elevated", c: "ib-deg", lat: 38.65, lon: 128.15, q: "Wonsan Naval Base", k: "macro" }
+                ] },
+            SAUDI_ARABIA: { flag: "🇸🇦", name: "Saudi Arabia", center: [23.8859, 45.0792], zoom: 5, summary: "Energy exporter shield: Ras Tanura complex + air defense node in Riyadh.",
+                assets: [
+                    { t: "Energy", n: "Ras Tanura Refinery", d: "550kbpd + export terminal", s: "Operational", c: "ib-op", lat: 26.64, lon: 50.16, q: "Ras Tanura", k: "energy" },
+                    { t: "Military", n: "King Salman Air Base", d: "Air defense · Riyadh", s: "Operational", c: "ib-op", lat: 24.71, lon: 46.72, q: "King Salman Air Base", k: "macro" }
+                ] }
+        };
+
+        async function loadInfraFromDB(c) {
+            try {
+                const r = await fetch(TRIGGER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_infra", country: c }) });
+                const j = await r.json();
+                if (j.cached && j.assets && j.assets.length) {
+                    const body = document.getElementById("infraBody");
+                    const stale = j.stale ? ` <span style="color:#ffaa00">· cache ${j.age_hours}h old, refreshing…</span>` : ` <span style="color:#0f0">· live DB ${j.age_hours}h</span>`;
+                    const rows = j.assets.slice(0, 60).map(a => `<div class="infra-item" onclick="quickScan('${(a.q || a.n).replace(/'/g, "")}', '${a.k || "macro"}', ${a.lat}, ${a.lon})">▪ ${a.n}<br><span style="color:#888;font-size:0.8em;">${a.t} · ${a.d || ""}</span><span class="infra-badge ${a.c || "ib-op"}">${a.s || "Operational"}</span></div>`).join("");
+                    body.innerHTML += `<div class="cat-header">LIVE DB — ${j.assets.length} NODES${stale}</div>` + rows + (j.assets.length > 60 ? `<div style="color:#888;font-size:0.8em;">+${j.assets.length - 60} more in DB</div>` : "");
+                    logIntel(`${c}: ${j.assets.length} live DB nodes merged.`, "success");
+                }
+                if (!j.cached || j.stale) fetch(TRIGGER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refresh_infra", country: c }) });
+            } catch (e) { /* static fallback stays */ }
+        }
+
+        function renderInfra(c) {
+            const body = document.getElementById("infraBody"), title = document.getElementById("infraTitle");
+            if (c === "GLOBAL" || !COUNTRY_INFRA[c]) {
+                title.textContent = "🏗️ Country Infrastructure";
+                body.innerHTML = "Select a country for a professional infrastructure brief.";
+                return;
+            }
+            const m = COUNTRY_INFRA[c];
+            const counts = {};
+            m.assets.forEach(a => counts[a.t] = (counts[a.t] || 0) + 1);
+            const chips = Object.entries(counts).map(([k, v]) => `<span class="infra-chip"><b>${v}</b> ${k}</span>`).join("");
+            const rows = m.assets.map((a, i) => `<div class="infra-item" onclick="quickScan('${a.q}', '${a.k}', ${a.lat}, ${a.lon})">▪ ${a.n}<br><span style="color:#888;font-size:0.8em;">${a.t} · ${a.d}</span><span class="infra-badge ${a.c}">${a.s}</span></div>`).join("");
+            title.textContent = `${m.flag} ${m.name} — Infrastructure`;
+            body.innerHTML = `<div style="color:#fff;margin-bottom:4px;">${m.summary}</div><div class="infra-stat"><span class="infra-chip"><b>${m.assets.length}</b> tracked</span>${chips}</div>${rows}`;
+            logIntel(`${m.name}: ${m.assets.length} infrastructure nodes loaded.`, "success");
+            loadInfraFromDB(c);
+        }
+
         function onCountrySelect() {
             const c = document.getElementById('countrySelect').value;
             const items = document.querySelectorAll('.hvt-list li');
             items.forEach(li => {
                 li.style.display = (c === 'GLOBAL' || li.getAttribute('data-country') === c) ? 'block' : 'none';
             });
+            renderInfra(c);
             if (c !== 'GLOBAL') {
-                const mapCoords = { 'EGYPT': [26.8206, 30.8025], 'RUSSIA': [61.5240, 105.3188], 'NORTH_KOREA': [40.3399, 127.5101], 'SAUDI_ARABIA': [23.8859, 45.0792], 'IRAN': [32.4279, 53.6880] };
-                map.flyTo(mapCoords[c], 5, {duration: 2.0});
+                const m = COUNTRY_INFRA[c];
+                const coords = m ? m.center : [26.8206, 30.8025];
+                const z = m ? m.zoom : 5;
+                map.flyTo(coords, z, {duration: 2.0});
                 document.getElementById('locationSearch').value = c.replace("_", " ");
             }
         }
@@ -265,6 +353,55 @@
                 logIntel(`Location not found.`, "error");
                 return false;
             }
+        }
+
+        let suggTimer = null, suggItems = [], suggIdx = -1;
+        const searchInput = () => document.getElementById("locationSearch");
+        const suggBox = () => document.getElementById("suggestBox");
+        document.addEventListener("DOMContentLoaded", () => {
+            const inp = searchInput();
+            inp.addEventListener("input", () => {
+                clearTimeout(suggTimer);
+                const q = inp.value.trim();
+                if (q.length < 3) { suggBox().style.display = "none"; return; }
+                suggTimer = setTimeout(() => fetchSuggestions(q), 300);
+            });
+            inp.addEventListener("keydown", (e) => {
+                const box = suggBox();
+                if (box.style.display === "none") return;
+                if (e.key === "ArrowDown") { e.preventDefault(); suggIdx = Math.min(suggIdx + 1, suggItems.length - 1); paintSugg(); }
+                else if (e.key === "ArrowUp") { e.preventDefault(); suggIdx = Math.max(suggIdx - 1, 0); paintSugg(); }
+                else if (e.key === "Enter" && suggIdx >= 0 && suggItems[suggIdx]) { e.preventDefault(); pickSugg(suggIdx); }
+                else if (e.key === "Escape") { box.style.display = "none"; }
+            });
+            document.addEventListener("click", (e) => { if (!e.target.closest(".search-wrap")) suggBox().style.display = "none"; });
+        });
+        async function fetchSuggestions(q) {
+            try {
+                const c = document.getElementById("countrySelect").value;
+                const hint = { EGYPT: "eg", IRAN: "ir", RUSSIA: "ru", NORTH_KOREA: "kp", SAUDI_ARABIA: "sa" }[c];
+                const url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&q=${encodeURIComponent(q)}${hint ? `&countrycodes=${hint}` : ""}`;
+                const res = await fetch(url);
+                suggItems = await res.json();
+                suggIdx = -1;
+                paintSugg();
+            } catch (err) { suggBox().style.display = "none"; }
+        }
+        function paintSugg() {
+            const box = suggBox();
+            if (!suggItems.length) { box.style.display = "none"; return; }
+            box.innerHTML = suggItems.map((s, i) => `<div class="${i === suggIdx ? "active" : ""}" data-i="${i}">📍 ${s.display_name.split(",").slice(0, 3).join(",")}</div>`).join("");
+            box.style.display = "block";
+            box.querySelectorAll("div").forEach(d => d.onclick = () => pickSugg(parseInt(d.dataset.i)));
+        }
+        function pickSugg(i) {
+            const s = suggItems[i];
+            if (!s) return;
+            searchInput().value = s.display_name.split(",").slice(0, 2).join(",");
+            suggBox().style.display = "none";
+            currentTarget = { lat: parseFloat(s.lat), lon: parseFloat(s.lon), name: s.display_name, bbox: s.boundingbox || [s.lat - 0.1, s.lat + 0.1, s.lon - 0.1, s.lon + 0.1] };
+            map.flyTo([currentTarget.lat, currentTarget.lon], 11, { duration: 1.5 });
+            logIntel(`Suggestion locked: ${s.display_name.split(",")[0]}. Hit MICRO SCAN.`, "success");
         }
 
         function quickScan(location, type, lat=null, lon=null) {

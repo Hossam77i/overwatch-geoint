@@ -127,3 +127,36 @@ resource "aws_iam_role_policy_attachment" "lambda_s3" {
   role       = aws_iam_role.geoint_lambda_role.name
   policy_arn = aws_iam_policy.s3_write.arn
 }
+
+# 24h infra cache per country (Step 1: Egypt, then roll out)
+resource "aws_dynamodb_table" "infra_cache" {
+  name         = "overwatch-infra-cache"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "country"
+  attribute {
+    name = "country"
+    type = "S"
+  }
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
+  }
+}
+
+resource "aws_iam_policy" "infra_cache_rw" {
+  name        = "overwatch_infra_cache_rw"
+  description = "Read/write 24h infra cache"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"]
+      Effect   = "Allow"
+      Resource = aws_dynamodb_table.infra_cache.arn
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_infra_cache" {
+  role       = aws_iam_role.geoint_lambda_role.name
+  policy_arn = aws_iam_policy.infra_cache_rw.arn
+}

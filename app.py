@@ -36,6 +36,61 @@ def handler(event, context):
                 "body": json.dumps({"error": str(e)})
             }
     
+    # --- INFRA CACHE: read 24h DB snapshot (frontend never hits Overpass directly) ---
+    if body.get('action') == 'get_infra':
+        try:
+            c = (body.get('country') or 'EGYPT').upper()
+            r = boto3.resource('dynamodb', region_name='us-east-1').Table('overwatch-infra-cache').get_item(Key={'country': c})
+            it = r.get('Item')
+            if not it:
+                return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"}, "body": json.dumps({"cached": False, "country": c})}
+            age = int(time.time()) - int(it.get('updated_at', 0))
+            return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"},
+                "body": json.dumps({"cached": True, "country": c, "updated_at": it.get('updated_at'), "age_hours": round(age / 3600, 1), "stale": age > 86400, "assets": json.loads(it.get('payload', '[]'))})}
+        except Exception as e:
+            return {"statusCode": 500, "headers": {"Access-Control-Allow-Origin": "*"}, "body": json.dumps({"error": str(e)})}
+
+    # --- INFRA REFRESH: Overpass with rate-limit guards (1 country/step, sequential, sleeps) ---
+    if body.get('action') == 'refresh_infra' or (not event.get('httpMethod') and not body.get('action')):
+        try:
+            c = (body.get('country') or 'EGYPT').upper()
+            iso = {'EGYPT': 'EG', 'IRAN': 'IR', 'RUSSIA': 'RU', 'NORTH_KOREA': 'KP', 'SAUDI_ARABIA': 'SA'}.get(c, 'EG')
+            queries = {
+                'Aviation': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["aeroway"="aerodrome"](area.a);way["aeroway"="aerodrome"](area.a););out center 80;',
+                'Energy': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["power"="plant"](area.a);way["power"="plant"](area.a););out center 80;',
+                'Maritime': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["industrial"="port"](area.a);way["industrial"="port"](area.a);node["seamark:type"="harbour"](area.a););out center 80;',
+                'Military': f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;(node["military"](area.a);way["military"](area.a););out center 60;',
+            }
+            mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
+            headers = {"User-Agent": "Overwatch-GEOINT/1.0 (contact: overwatch demo; cache 24h)"}
+            assets = []
+            for cat, q in queries.items():
+                el = []
+                for m in mirrors:
+                    try:
+                        r = requests.post(m, data={'data': q}, headers=headers, timeout=10)
+                        if r.status_code == 200:
+                            el = r.json().get('elements', [])
+                            break
+                        time.sleep(2)
+                    except Exception:
+                        time.sleep(2)
+                        continue
+                for e in el[:80]:
+                    tags = e.get('tags', {})
+                    nm = tags.get('name') or tags.get('operator') or f"Unnamed {cat} site"
+                    la, lo = e.get('lat'), e.get('lon')
+                    if la is None and 'center' in e: la, lo = e['center'].get('lat'), e['center'].get('lon')
+                    if la is None: continue
+                    assets.append({'t': cat, 'n': nm[:80], 'd': (tags.get('operator') or cat)[:60], 's': 'Operational', 'c': 'ib-op', 'lat': round(float(la), 4), 'lon': round(float(lo), 4), 'q': nm[:60], 'k': 'macro'})
+                time.sleep(2)  # rate-limit guard: never hammer Overpass
+            boto3.resource('dynamodb', region_name='us-east-1').Table('overwatch-infra-cache').put_item(
+                Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:300])})
+            return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"},
+                "body": json.dumps({"refreshed": True, "country": c, "count": len(assets[:300])})}
+        except Exception as e:
+            return {"statusCode": 500, "headers": {"Access-Control-Allow-Origin": "*"}, "body": json.dumps({"error": str(e)})}
+
     try:
         lat = float(body.get('lat', 30.5852))
         lon = float(body.get('lon', 32.3503))
