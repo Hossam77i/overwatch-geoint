@@ -416,7 +416,7 @@
             const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
             const data = await res.json();
             if (data.length > 0) {
-                currentTarget = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name, bbox: data[0].boundingbox };
+                currentTarget = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name, bbox: data[0].boundingbox, locked: true };
                 const s = parseFloat(currentTarget.bbox[0]), n = parseFloat(currentTarget.bbox[1]);
                 const w = parseFloat(currentTarget.bbox[2]), e = parseFloat(currentTarget.bbox[3]);
                 map.fitBounds([[s, w], [n, e]], {padding: [20, 20], maxZoom: 12});
@@ -434,6 +434,7 @@
             const inp = searchInput();
             inp.addEventListener("input", () => {
                 clearTimeout(suggTimer);
+                if (currentTarget) currentTarget.locked = false; // user typed: re-resolve on scan
                 const q = inp.value.trim();
                 if (q.length < 3) { suggBox().style.display = "none"; return; }
                 suggTimer = setTimeout(() => fetchSuggestions(q), 300);
@@ -473,7 +474,7 @@
             if (!s) return;
             searchInput().value = s.display_name.split(",").slice(0, 2).join(",");
             suggBox().style.display = "none";
-            currentTarget = { lat: parseFloat(s.lat), lon: parseFloat(s.lon), name: s.display_name, bbox: s.boundingbox || [s.lat - 0.1, s.lat + 0.1, s.lon - 0.1, s.lon + 0.1] };
+            currentTarget = { lat: parseFloat(s.lat), lon: parseFloat(s.lon), name: s.display_name, bbox: s.boundingbox || [s.lat - 0.1, s.lat + 0.1, s.lon - 0.1, s.lon + 0.1], locked: true };
             map.flyTo([currentTarget.lat, currentTarget.lon], 11, { duration: 1.5 });
             logIntel(`Suggestion locked: ${s.display_name.split(",")[0]}. Hit MICRO SCAN.`, "success");
         }
@@ -481,7 +482,7 @@
         function quickScan(location, type, lat=null, lon=null) {
             document.getElementById('locationSearch').value = location;
             if (lat && lon) {
-                currentTarget = { lat: lat, lon: lon, name: location, bbox: [lat-0.1, lat+0.1, lon-0.1, lon+0.1] };
+                currentTarget = { lat: lat, lon: lon, name: location, bbox: [lat-0.1, lat+0.1, lon-0.1, lon+0.1], locked: true };
                 map.setView([lat, lon], 14);
             }
             if (type === 'macro') executeMacroOSINT();
@@ -581,7 +582,21 @@
                     logIntel(`[MACRO] Public API Throttled or Blocked. Activating 12-Hour Local DynamoDB Cache Pipeline...`, "warn");
                     
                     let counts = { aviation: 0, energy: 0, military: 0 };
-                    LOCAL_DB_CACHE.forEach(el => {
+                    // Prefer our 24h infra DB (hundreds of sites) over the small hardcoded list
+                    let cacheSrc = LOCAL_DB_CACHE;
+                    try {
+                        const cc = document.getElementById('countrySelect').value;
+                        if (cc && cc !== 'GLOBAL') {
+                            const dbR = await fetch(TRIGGER_URL, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ action: "get_infra", country: cc }) });
+                            const dbJ = await dbR.json();
+                            if (dbJ.cached && dbJ.assets && dbJ.assets.length) {
+                                const typeMap = { Aviation: "Aviation Hub", Energy: "Energy Plant", Military: "Military Base", Maritime: "Maritime Port" };
+                                cacheSrc = dbJ.assets.filter(a => typeMap[a.t]).map(a => ({ lat: a.lat, lon: a.lon, type: typeMap[a.t], name: a.n }));
+                                logIntel(`[MACRO] 24h infra DB merged: ${cacheSrc.length} sites for ${cc}.`, "success");
+                            }
+                        }
+                    } catch (dbE) { /* hardcoded cache stays */ }
+                    cacheSrc.forEach(el => {
                         if (el.lat >= s && el.lat <= n && el.lon >= w && el.lon <= e) {
                             let allowed = false;
                             if (document.getElementById('layer-military').checked && el.type === "Military Base") allowed = true;
@@ -672,7 +687,9 @@
 
             btn.disabled = true;
             try {
-                if (!currentTarget || !currentTarget.name.toLowerCase().includes(query.toLowerCase())) {
+                // CLICK-LOCK: a place picked from infrastructure/suggestions already carries
+                // exact coordinates — photograph it directly, never re-geocode past it.
+                if (!currentTarget || !currentTarget.locked) {
                     await geocodeLocation(query);
                 }
                 logIntel(`[MICRO] Requesting Sentinel-2 orbital imagery...`);

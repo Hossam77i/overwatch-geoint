@@ -277,7 +277,7 @@ def handler(event, context):
                     area = w * h
                     ar = max(w, h) / min(w, h)
                     ext = cv2.contourArea(cnt) / area if area > 0 else 0
-                    if not (80 < area < 900 and 1.3 < ar < 5.0 and ext > 0.45):
+                    if not (80 < area < 900 and 1.4 < ar < 5.0 and ext > 0.5):
                         continue
                     # contrast gate: airframe must be clearly brighter than its surroundings
                     x, y, bw, bh = cv2.boundingRect(cnt)
@@ -288,6 +288,20 @@ def handler(event, context):
                     if ring.size == 0 or inner.size == 0:
                         continue
                     if float(inner.mean()) - float(ring.mean()) < 18:
+                        continue
+                    # WING TEST (cruciform signature): a real airframe silhouette has deep
+                    # concavities where wings and tail meet the fuselage. Terminal roofs
+                    # and buildings are convex blocks (0 significant defects) and are rejected.
+                    hull = cv2.convexHull(cnt, returnPoints=False)
+                    ndef = 0
+                    if hull is not None and len(hull) > 3:
+                        dfx = cv2.convexityDefects(cnt, hull)
+                        if dfx is not None:
+                            long_side = max(w, h)
+                            for i in range(dfx.shape[0]):
+                                if dfx[i, 0, 3] / 256.0 > 0.12 * long_side:
+                                    ndef += 1
+                    if ndef < 3:
                         continue
                     boxes.append((rect, ext, (rcx, rcy)))
                 boxes.sort(key=lambda t: -(t[0][1][0] * t[0][1][1]))
