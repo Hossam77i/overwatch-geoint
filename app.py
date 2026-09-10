@@ -61,18 +61,42 @@ def handler(event, context):
             
         is_macro_scan = (bbox is not None)
         
-        # High-res export from ArcGIS
-        url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size={img_w},{img_h}&f=image"
-        
-        img_path = "/tmp/target.jpg"
-        response = requests.get(url)
-        with open(img_path, 'wb') as f: f.write(response.content)
-
-        img = cv2.imread(img_path)
-        if img is None:
-            img = np.zeros((img_h, img_w, 3), dtype=np.uint8)
+        # --- ADVANCED SUB-TILING STITCHING ALGORITHM ---
+        if is_macro_scan:
+            # Sea-to-Sea Continental Scan: Divide massive area into multiple overlapping sub-tiles
+            # to preserve maximum optical resolution without hitting ArcGIS timeouts
+            url_list = []
+            num_chunks = 4  # 100km + 100km + 100km + 100km concept
+            lat_step = (north - south) / num_chunks
+            
+            chunks = []
+            # Fetch from North to South to stitch top-to-bottom
+            for i in range(num_chunks):
+                chunk_north = north - (i * lat_step)
+                chunk_south = chunk_north - lat_step
+                chunk_h = img_h // num_chunks
+                
+                url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{chunk_south},{east},{chunk_north}&bboxSR=4326&imageSR=4326&size={img_w},{chunk_h}&f=image"
+                r = requests.get(url)
+                
+                # Decode chunk in memory
+                img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
+                chunk_img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                if chunk_img is not None:
+                    chunks.append(chunk_img)
+                else:
+                    chunks.append(np.zeros((chunk_h, img_w, 3), dtype=np.uint8))
+            
+            # Stitch all chunks into one massive, continuous map
+            img = cv2.vconcat(chunks)
         else:
-            img = cv2.resize(img, (img_w, img_h), interpolation=cv2.INTER_CUBIC)
+            # Standard Tactical Scan
+            url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size={img_w},{img_h}&f=image"
+            r = requests.get(url)
+            img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
+            img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+            if img is None:
+                img = np.zeros((img_h, img_w, 3), dtype=np.uint8)
         
         output_img = img.copy()
         
