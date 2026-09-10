@@ -48,7 +48,7 @@ resource "aws_lambda_function" "overwatch_lambda" {
   role          = aws_iam_role.geoint_lambda_role.arn
   package_type  = "Image"
   image_uri     = "538675137281.dkr.ecr.us-east-1.amazonaws.com/overwatch-geoint:latest"
-  timeout       = 60
+  timeout       = 300
   memory_size   = 1024
 }
 
@@ -79,7 +79,7 @@ resource "aws_apigatewayv2_api" "geoint_api" {
   protocol_type = "HTTP"
   cors_configuration {
     allow_origins = ["*"]
-    allow_methods = ["GET", "OPTIONS"]
+    allow_methods = ["GET", "POST", "OPTIONS"]
     allow_headers = ["content-type"]
   }
 }
@@ -97,6 +97,11 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
 resource "aws_apigatewayv2_route" "trigger_route" {
   api_id    = aws_apigatewayv2_api.geoint_api.id
   route_key = "GET /trigger-overwatch"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+resource "aws_apigatewayv2_route" "trigger_route_post" {
+  api_id    = aws_apigatewayv2_api.geoint_api.id
+  route_key = "POST /trigger-overwatch"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 resource "aws_lambda_permission" "api_gw_invoke" {

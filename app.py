@@ -62,6 +62,184 @@ def _refresh_country(c, timeout=10):
         Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:300])})
     return len(assets[:300])
 
+def _nms_centers(items, min_dist=12):
+    """Greedy NMS by center distance. items: (rect, cx, cy, score, ...). Highest score wins."""
+    items = sorted(items, key=lambda t: -t[3])
+    kept = []
+    for it in items:
+        _, cx, cy, sc, *_ = it
+        if all(math.hypot(cx - ox, cy - oy) >= min_dist for _, ox, oy, _, *_ in kept):
+            kept.append(it)
+    return kept
+
+
+def _maritime_detect(img1600):
+    """Scale-aware vessel detector for 1600px / ~22km frames (~13.75m/px).
+    Returns (count, boxes[(rect, cx, cy, score)], confidence, water_cov)."""
+    gray = cv2.cvtColor(img1600, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # 5x5 open: 10x10 erases the ~14px-wide Suez canal entirely
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return 0, [], 62.0, 0.0
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    full = 1600.0 * 1600.0
+    cov0 = cv2.contourArea(contours[0]) / full
+    chosen = contours[0]
+    if cov0 > 0.70 and len(contours) > 1:
+        # Largest is land (annotated/darkened frames invert Otsu): fall back to 2nd body
+        cov1 = cv2.contourArea(contours[1]) / full
+        if 0.015 < cov1 < 0.65:
+            chosen = contours[1]
+        else:
+            return 0, [], 60.0, round(cov0 * 100, 2)
+    cov = cv2.contourArea(chosen) / full
+    if cov < 0.015 or cov > 0.75:
+        return 0, [], 60.0, round(cov * 100, 2)
+    water_mask = np.zeros_like(gray)
+    cv2.drawContours(water_mask, [chosen], 0, 255, -1)
+    # Adaptive erosion from true channel width (distance transform)
+    try:
+        dist = cv2.distanceTransform(water_mask, cv2.DIST_L2, 3)
+        width_px = float(dist.max()) * 2.0
+    except Exception:
+        width_px = 40.0
+    if width_px < 30:
+        ek = 3
+    else:
+        ek = 5
+    water_eroded = cv2.erode(water_mask, np.ones((ek, ek), np.uint8), iterations=1)
+    edges = cv2.Canny(gray, 50, 150)
+    water_edges = cv2.bitwise_and(edges, edges, mask=water_eroded)
+    water_edges = cv2.dilate(water_edges, np.ones((3, 3), np.uint8), iterations=1)
+    ship_cnts, _ = cv2.findContours(water_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    scored = []
+    for cnt in ship_cnts:
+        rect = cv2.minAreaRect(cnt)
+        (rcx, rcy), (w, h), _ = rect
+        area = w * h
+        if area <= 0:
+            continue
+        ar = max(w, h) / max(1e-6, min(w, h))
+        cnt_area = cv2.contourArea(cnt)
+        ext = cnt_area / area
+        try:
+            hull_area = cv2.contourArea(cv2.convexHull(cnt))
+            sol = cnt_area / hull_area if hull_area > 0 else 1.0
+        except Exception:
+            sol = 1.0
+        # 50-400m ships at 13.75m/px -> 4-29px long, 1-5px wide, 10-400px²
+        if not (12 < area < 800 and 1.6 < ar < 10.0 and ext > 0.35 and sol > 0.35 and min(w, h) >= 1.8):
+            continue
+        x, y, bw, bh = cv2.boundingRect(cnt)
+        if x <= 2 or y <= 2 or x + bw >= 1598 or y + bh >= 1598:
+            continue  # tile borders / frame edges, not vessels
+        x0, y0 = max(0, x - 6), max(0, y - 6)
+        x1, y1 = min(1600, x + bw + 6), min(1600, y + bh + 6)
+        ring = gray[y0:y1, x0:x1].astype(np.float32)
+        inner = gray[y:y + bh, x:x + bw].astype(np.float32)
+        if ring.size == 0 or inner.size == 0:
+            continue
+        contrast = abs(float(inner.mean()) - float(ring.mean()))
+        if contrast < 8:
+            continue
+        score = 0.35 * min(1.0, area / 250.0) + 0.35 * min(1.0, ext) + 0.30 * min(1.0, contrast / 40.0)
+        if score < 0.30:
+            continue
+        scored.append((rect, rcx, rcy, score, contrast, ext))
+    kept = _nms_centers(scored, min_dist=12)[:40]
+    n = len(kept)
+    if n == 0:
+        return 0, [], 62.0, round(cov * 100, 2)
+    mean_score = sum(k[3] for k in kept) / n
+    conf = min(94.0, 68.0 + 22.0 * mean_score + 3.0 * math.log1p(n))
+    return n, [(k[0], k[1], k[2], k[3]) for k in kept], round(conf, 1), round(cov * 100, 2)
+
+
+def _aviation_detect(detail1600, gray_d, air_mask):
+    """Scale-aware airframe detector for 1600px / ~5km frames (~3.1m/px).
+    30-70m airliners -> 10-23px. Returns (count, boxes, confidence)."""
+    tophat = cv2.morphologyEx(gray_d, cv2.MORPH_TOPHAT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
+    blackhat = cv2.morphologyEx(gray_d, cv2.MORPH_BLACKHAT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
+    kept = []
+    for pct in (97.5, 98.0, 98.5, 99.0, 99.5, 99.8):
+        _, tmw = cv2.threshold(tophat, float(np.percentile(tophat, pct)), 255, cv2.THRESH_BINARY)
+        _, tmb = cv2.threshold(blackhat, float(np.percentile(blackhat, pct)), 255, cv2.THRESH_BINARY)
+        tm = cv2.bitwise_and(cv2.bitwise_or(tmw, tmb), cv2.bitwise_or(tmw, tmb), mask=air_mask)
+        cnts, _ = cv2.findContours(tm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        boxes = []
+        for cnt in cnts:
+            rect = cv2.minAreaRect(cnt)
+            (rcx, rcy), (w, h), _ = rect
+            if min(w, h) < 1 or max(w, h) > 32:
+                continue
+            area = w * h
+            ar = max(w, h) / max(1e-6, min(w, h))
+            ext = cv2.contourArea(cnt) / area if area > 0 else 0
+            if area < 30 or area > 900 or ext < 0.18:
+                continue
+            x, y, bw, bh = cv2.boundingRect(cnt)
+            x0, y0 = max(0, x - 6), max(0, y - 6)
+            x1, y1 = min(1600, x + bw + 6), min(1600, y + bh + 6)
+            ring = gray_d[y0:y1, x0:x1].astype(np.float32)
+            inner = gray_d[y:y + bh, x:x + bw].astype(np.float32)
+            if ring.size == 0 or inner.size == 0:
+                continue
+            contrast = abs(float(inner.mean()) - float(ring.mean()))
+            # Note: no ring-std gate — JPEG tarmac/markings are textured (std 60-90);
+            # contrast + shape + defects already separate jets from blocks.
+            if contrast < 8:
+                continue
+            if len(cnt) < 5:
+                continue
+            hull = cv2.convexHull(cnt, returnPoints=False)
+            ndef = 0
+            try:
+                if hull is not None and len(hull) > 3:
+                    dfx = cv2.convexityDefects(cnt, hull)
+                    if dfx is not None:
+                        long_side = max(w, h)
+                        for row in np.asarray(dfx).reshape(-1, 4):
+                            if float(row[3]) / 256.0 > 0.08 * long_side:
+                                ndef += 1
+            except Exception:
+                continue
+            try:
+                ha = cv2.contourArea(cv2.convexHull(cnt))
+                sol = cv2.contourArea(cnt) / ha if ha > 0 else 1.0
+            except Exception:
+                sol = 1.0
+            track = None
+            if 1.0 <= ar <= 1.8 and 60 < area < 650 and ndef >= 2 and sol < 0.75:
+                track = 0  # compact top-down cross
+            elif 1.6 < ar < 6.5 and ext > 0.22 and ndef >= 2 and sol < 0.85:
+                track = 1  # elongated side-profile airframe
+            if track is None:
+                continue
+            score = 0.40 * min(1.0, ndef / 4.0) + 0.30 * min(1.0, contrast / 40.0) + 0.30 * (1.0 - min(1.0, sol))
+            if score < 0.35:
+                continue
+            boxes.append((rect, rcx, rcy, score, track, area, sol, contrast, ndef))
+        boxes.sort(key=lambda t: -t[3])
+        kept = []
+        for b, x, y, sc, tr, ar2, so, co, nd in boxes:
+            dist = max(11.0, (b[1][0] + b[1][1]) / 4.0)
+            if all(math.hypot(x - ox, y - oy) >= dist for _, ox, oy, _, _, _, _, _, _ in kept):
+                kept.append((b, x, y, sc, tr, ar2, so, co, nd))
+            if len(kept) >= 40:
+                break
+        if len(kept) < 40 or pct >= 99.8:
+            break
+    n = len(kept)
+    if n == 0:
+        return 0, [], 60.0
+    hi = sum(1 for *_, tr, _, _, _, _ in kept if tr == 0)
+    mean_score = sum(k[3] for k in kept) / n
+    conf = min(93.0, 68.0 + 20.0 * (hi / max(1, n)) + 8.0 * mean_score)
+    return n, [(k[0], k[1], k[2], k[3]) for k in kept], round(conf, 1)
+
+
 def handler(event, context):
     if event.get('httpMethod') == 'OPTIONS':
         return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "*", "Access-Control-Allow-Headers": "*"}, "body": ""}
@@ -162,93 +340,46 @@ def handler(event, context):
     
     detect_count = 0
     av_zoom = False
-    import random
-    
+
     if scan_filter == 'maritime':
-        # REAL ADVANCED COMPUTER VISION - MARITIME ANOMALY DETECTION (HYPER-ACCURATE)
-        gray = cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY)
-        
-        # Hyper-Accurate Canal/Sea Isolation (Adaptive Otsu Thresholding)
-        # Replaces brittle hardcoded 95 limit with dynamic split to handle bright coastal waters like Alexandria
-        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        kernel = np.ones((10,10), np.uint8)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-        
-        contours_water, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        num_ships = 0
-        if contours_water:
-            # The canal or sea is guaranteed to be the largest dark body in a maritime scan
-            largest_cnt = max(contours_water, key=cv2.contourArea)
-            water_mask = np.zeros_like(gray)
-            cv2.drawContours(water_mask, [largest_cnt], 0, 255, -1)
-            
-            # ADVANCED TECHNIQUE: Topological Noise Reduction
-            # Darken the land (noise) to focus exclusively on the water body
-            land_mask = cv2.bitwise_not(water_mask)
-            land_dark = (cv2.bitwise_and(output_img, output_img, mask=land_mask) * 0.3).astype(np.uint8)
-            water_bright = cv2.bitwise_and(output_img, output_img, mask=water_mask)
-            output_img = cv2.add(land_dark, water_bright)
-            
-            # ADVANCED TECHNIQUE: True Shoreline Wrapping (No Border Crossing)
-            shore_mask = cv2.Canny(water_mask, 100, 200)
-            # Erase image borders to prevent the line from cutting across the water
-            shore_mask[0:4, :] = 0
-            shore_mask[-4:, :] = 0
-            shore_mask[:, 0:4] = 0
-            shore_mask[:, -4:] = 0
-            shore_mask = cv2.dilate(shore_mask, np.ones((3,3), np.uint8), iterations=1)
-            output_img[shore_mask > 0] = [255, 200, 0]
-            
-            # ERODE the mask to entirely exclude shorelines, docks, and attached landmasses
-            water_mask = cv2.erode(water_mask, np.ones((15,15), np.uint8), iterations=1)
-            
-            # Find metallic structural edges exclusively in the deep water mask
-            edges = cv2.Canny(gray, 100, 200)
-            water_edges = cv2.bitwise_and(edges, edges, mask=water_mask)
-            water_edges = cv2.dilate(water_edges, np.ones((3,3), np.uint8), iterations=1)
-            
-            ship_cnts, _ = cv2.findContours(water_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            for cnt in ship_cnts:
-                # Use minAreaRect to calculate true structural dimensions regardless of rotation
-                rect = cv2.minAreaRect(cnt)
-                (rcx, rcy), (w, h), angle = rect
-                area = w * h
-                
-                if area > 0:
-                    aspect_ratio = max(w, h) / min(w, h)
-                    cnt_area = cv2.contourArea(cnt)
-                    extent = cnt_area / area if area > 0 else 0
-                    
-                    # Extreme Structural Filter: 
-                    # 1. 15 < area < 500 (Isolates ships, rejects islands)
-                    # 2. 1.8 < aspect_ratio < 8.0 (Rejects perfectly straight map tile stitching lines)
-                    # 3. min(w,h) >= 2.5 (Rejects 1-pixel thin wave crests and boundary artifacts)
-                    # 4. extent > 0.45 (Rejects non-rectangular random noise)
-                    if 15 < area < 500 and 1.8 < aspect_ratio < 8.0 and extent > 0.45 and min(w, h) >= 2.5:
-                        num_ships += 1
-                        
-                        # Draw sleek rotated bounding box
-                        box = cv2.boxPoints(rect)
-                        box = np.intp(box)
-                        cv2.drawContours(output_img, [box], 0, (0, 255, 0), 1)
-                        
-                        # Label
-                        rx, ry, rw, rh = cv2.boundingRect(cnt)
-                        cv2.putText(output_img, "VESSEL", (rx, ry-4), cv2.FONT_HERSHEY_SIMPLEX, 0.25, (0, 255, 0), 1)
-                
-        # Calculate dynamic accuracy confidence > 95%
-        base_confidence = 98.5 + min(1.4, num_ships * 0.1)
-        acc = random.uniform(base_confidence, 99.9)
-        cv2.putText(output_img, f"TOPOLOGICAL LOCK: {acc:.1f}% | VESSELS: {num_ships}", (40, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 200, 0), 1)
+        num_ships, ship_boxes, acc, water_cov = _maritime_detect(output_img)
+        # Viz: darken land + true shoreline wrap (same Otsu guard as detector)
+        try:
+            gray_viz = cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY)
+            _, th_viz = cv2.threshold(gray_viz, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            th_viz = cv2.morphologyEx(th_viz, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+            cnts_viz, _ = cv2.findContours(th_viz, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if cnts_viz:
+                cnts_viz = sorted(cnts_viz, key=cv2.contourArea, reverse=True)
+                chosen_viz = cnts_viz[0]
+                if cv2.contourArea(chosen_viz) / 2560000.0 > 0.70 and len(cnts_viz) > 1:
+                    chosen_viz = cnts_viz[1]
+                water_mask_viz = np.zeros_like(gray_viz)
+                cv2.drawContours(water_mask_viz, [chosen_viz], 0, 255, -1)
+                land_mask = cv2.bitwise_not(water_mask_viz)
+                land_dark = (cv2.bitwise_and(output_img, output_img, mask=land_mask) * 0.3).astype(np.uint8)
+                water_bright = cv2.bitwise_and(output_img, output_img, mask=water_mask_viz)
+                output_img = cv2.add(land_dark, water_bright)
+                shore_mask = cv2.Canny(water_mask_viz, 100, 200)
+                shore_mask[0:4, :] = 0
+                shore_mask[-4:, :] = 0
+                shore_mask[:, 0:4] = 0
+                shore_mask[:, -4:] = 0
+                shore_mask = cv2.dilate(shore_mask, np.ones((3, 3), np.uint8), iterations=1)
+                output_img[shore_mask > 0] = [255, 200, 0]
+        except Exception:
+            pass
+        for (rect, _rcx, _rcy, _score) in ship_boxes:
+            box = cv2.boxPoints(rect)
+            box = np.intp(box)
+            cv2.drawContours(output_img, [box], 0, (0, 255, 0), 1)
+            rx, ry, rw, rh = cv2.boundingRect(box)
+            cv2.putText(output_img, "VESSEL", (rx, ry - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.25, (0, 255, 0), 1)
+        cv2.putText(output_img, f"TOPOLOGICAL LOCK: {acc:.1f}% | VESSELS: {num_ships} | WATER {water_cov:.1f}%", (40, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 200, 0), 1)
         detect_count = num_ships
 
     elif scan_filter == 'aviation':
-        # REAL COMPUTER VISION - AIRFRAME DETECTION & COUNT
-        # Wide 22km view can't resolve parked aircraft, so pull a 5km hi-res
-        # detail window (~3m/px: airliner = 10-25px) and detect bright airframes
-        # on dark tarmac via white top-hat + structural filters + dedupe.
+        # Hi-res 5km detail window (~3.1m/px: airliner = 10-23px). GIS-masked hunt.
         num_planes = 0
         av_zoom = False
         try:
@@ -259,16 +390,19 @@ def handler(event, context):
             if detail is None:
                 raise ValueError("detail fetch failed")
             detail = cv2.resize(detail, (1600, 1600), interpolation=cv2.INTER_CUBIC)
-            # AIRFIELD MASK (GIS-guided detection): restrict the hunt to runways,
-            # taxiways, aprons, terminals and hangars so dense city blocks can never
-            # become candidates. Falls back to full frame if OSM is unreachable.
-            air_mask = np.ones((1600, 1600), dtype=np.uint8) * 255
+            # AIRFIELD MASK (GIS-guided): runways/taxiways/aprons only, so city
+            # blocks can never become candidates. Fallback = 1.2km center circle
+            # (airport is always at target center), never full frame.
+            # Guard: aviation scans outside known airfield sectors abort instead
+            # of hallucinating jets over canals/cities when OSM is unreachable.
+            KNOWN_AIRFIELDS = [(30.1219, 31.4056), (55.972, 37.414), (39.224, 125.67)]
+            air_mask = np.zeros((1600, 1600), dtype=np.uint8)
+            mask_from_osm = False
             try:
                 aq = f'[out:json][timeout:15];(way["aeroway"~"^(runway|taxiway|apron|terminal|hangar)$"](around:3000,{lat},{lon}););out geom;'
                 ar = requests.post(OVERPASS_MIRRORS[0], data={'data': aq}, headers=INFRA_UA, timeout=10)
                 ap = ar.json().get('elements', []) if ar.status_code == 200 else []
                 if ap:
-                    air_mask[:] = 0
                     for el in ap:
                         g = el.get('geometry', [])
                         if len(g) < 3:
@@ -276,89 +410,50 @@ def handler(event, context):
                         pts = np.array([[(p['lon'] - (lon - dw)) / (2 * dw) * 1600, (1 - (p['lat'] - (lat - dh)) / (2 * dh)) * 1600] for p in g], dtype=np.int32)
                         cv2.fillPoly(air_mask, [pts], 255)
                     air_mask = cv2.dilate(air_mask, np.ones((25, 25), np.uint8), iterations=1)
+                    mask_from_osm = True
+                else:
+                    raise ValueError("empty airfield geom")
             except Exception:
-                air_mask[:] = 255
-            gray_d = cv2.cvtColor(detail, cv2.COLOR_BGR2GRAY)
-            gray_d = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray_d)
-            tophat = cv2.morphologyEx(gray_d, cv2.MORPH_TOPHAT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
-            blackhat = cv2.morphologyEx(gray_d, cv2.MORPH_BLACKHAT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
-            kept = []
-            for pct in (97.5, 98.0, 98.5, 99.0, 99.5, 99.8):
-                _, tmw = cv2.threshold(tophat, float(np.percentile(tophat, pct)), 255, cv2.THRESH_BINARY)
-                _, tmb = cv2.threshold(blackhat, float(np.percentile(blackhat, pct)), 255, cv2.THRESH_BINARY)
-                tm = cv2.bitwise_and(cv2.bitwise_or(tmw, tmb), cv2.bitwise_or(tmw, tmb), mask=air_mask)
-                # NOTE: no morphological open — a 3x3 open erases 1-2px-wide
-                # fuselages entirely. Speckle noise dies later in area/shape gates.
-                cnts, _ = cv2.findContours(tm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                boxes = []
-                for cnt in cnts:
-                    rect = cv2.minAreaRect(cnt)
-                    (rcx, rcy), (w, h), ang = rect
-                    if min(w, h) < 1 or max(w, h) > 40:
-                        continue
-                    area = w * h
-                    ar = max(w, h) / min(w, h)
-                    ext = cv2.contourArea(cnt) / area if area > 0 else 0
-                    if area < 25 or area > 1400 or ext < 0.15:
-                        continue
-                    # contrast gate, either polarity (white jets and dark silhouettes)
-                    x, y, bw, bh = cv2.boundingRect(cnt)
-                    x0, y0 = max(0, x - 6), max(0, y - 6)
-                    x1, y1 = min(1600, x + bw + 6), min(1600, y + bh + 6)
-                    ring = gray_d[y0:y1, x0:x1]
-                    inner = gray_d[y:y + bh, x:x + bw]
-                    if ring.size == 0 or inner.size == 0:
-                        continue
-                    if abs(float(inner.mean()) - float(ring.mean())) < 8:
-                        continue
-                    if len(cnt) < 5:
-                        continue
-                    hull = cv2.convexHull(cnt, returnPoints=False)
-                    ndef = 0
-                    try:
-                        if hull is not None and len(hull) > 3:
-                            dfx = cv2.convexityDefects(cnt, hull)
-                            if dfx is not None:
-                                long_side = max(w, h)
-                                # normalize: OpenCV may return (N,1,4), (N,4) or flat (4,)
-                                for row in np.asarray(dfx).reshape(-1, 4):
-                                    if float(row[3]) / 256.0 > 0.08 * long_side:
-                                        ndef += 1
-                    except Exception:
-                        continue
-                    ha = cv2.contourArea(cv2.convexHull(cnt))
-                    sol = cv2.contourArea(cnt) / ha if ha > 0 else 1
-                    track = None
-                    if 1.0 <= ar <= 1.7 and 40 < area < 700 and ndef >= 3 and sol < 0.7:
-                        track = 0  # compact top-down cross — most likely aircraft
-                    elif 1.5 < ar < 6.0 and ext > 0.2 and ndef >= 2:
-                        track = 1  # elongated side-profile airframe
-                    if track is None:
-                        continue
-                    boxes.append((rect, rcx, rcy, track, area, sol))
-                boxes.sort(key=lambda t: (t[3], t[4]))
-                kept = []
-                for b, x, y, tr, ar2, so in boxes:
-                    if all(abs(x - ox) > 9 or abs(y - oy) > 9 for _, ox, oy, _, _, _ in kept):
-                        kept.append((b, x, y, tr, ar2, so))
-                    if len(kept) >= 60:
-                        break
-                if len(kept) < 60 or pct >= 99.8:
-                    break  # converged, or max strictness reached
-            output_img = detail
-            for (b, _, _, _, _, _) in kept:
-                num_planes += 1
-                box = cv2.boxPoints(b)
-                box = np.intp(box)
-                cv2.drawContours(output_img, [box], 0, (0, 255, 255), 2)
-                rx, ry, rw, rh = cv2.boundingRect(box)
-                cv2.putText(output_img, f"ACFT-{num_planes}", (rx, max(0, ry - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
-            hi_conf = sum(1 for _, _, _, tr, _, _ in kept if tr == 0)
-            acc = min(99.9, 93.0 + 6.0 * (hi_conf / max(1, num_planes)))
-            cv2.putText(output_img, f"AIRFRAME LOCK: {acc:.1f}% | AIRCRAFT: {num_planes}", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-            detect_count = num_planes
-            av_zoom = True
-            west, south, east, north = lon - dw, lat - dh, lon + dw, lat + dh
+                pass
+            if not mask_from_osm:
+                nearest = min(math.hypot(lat - a[0], lon - a[1]) for a in KNOWN_AIRFIELDS)
+                if nearest > 0.2:
+                    cv2.putText(output_img, "NO AIRFIELD IN SECTOR: AVIATION ABORTED", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                    detect_count = 0
+                    av_zoom = True
+                    west, south, east, north = lon - dw, lat - dh, lon + dw, lat + dh
+                    acc = 60.0
+                else:
+                    cv2.circle(air_mask, (800, 800), 600, 255, -1)
+                    gray_d = cv2.cvtColor(detail, cv2.COLOR_BGR2GRAY)
+                    gray_d = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray_d)
+                    num_planes, plane_boxes, acc = _aviation_detect(detail, gray_d, air_mask)
+                    output_img = detail
+                    for i, (b, _, _, _) in enumerate(plane_boxes, 1):
+                        box = cv2.boxPoints(b)
+                        box = np.intp(box)
+                        cv2.drawContours(output_img, [box], 0, (0, 255, 255), 2)
+                        rx, ry, rw, rh = cv2.boundingRect(box)
+                        cv2.putText(output_img, f"ACFT-{i}", (rx, max(0, ry - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
+                    cv2.putText(output_img, f"AIRFRAME LOCK: {acc:.1f}% | AIRCRAFT: {num_planes}", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                    detect_count = num_planes
+                    av_zoom = True
+                    west, south, east, north = lon - dw, lat - dh, lon + dw, lat + dh
+            else:
+                gray_d = cv2.cvtColor(detail, cv2.COLOR_BGR2GRAY)
+                gray_d = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray_d)
+                num_planes, plane_boxes, acc = _aviation_detect(detail, gray_d, air_mask)
+                output_img = detail
+                for i, (b, _, _, _) in enumerate(plane_boxes, 1):
+                    box = cv2.boxPoints(b)
+                    box = np.intp(box)
+                    cv2.drawContours(output_img, [box], 0, (0, 255, 255), 2)
+                    rx, ry, rw, rh = cv2.boundingRect(box)
+                    cv2.putText(output_img, f"ACFT-{i}", (rx, max(0, ry - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
+                cv2.putText(output_img, f"AIRFRAME LOCK: {acc:.1f}% | AIRCRAFT: {num_planes}", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                detect_count = num_planes
+                av_zoom = True
+                west, south, east, north = lon - dw, lat - dh, lon + dw, lat + dh
         except Exception:
             box_w, box_h = 500, 300
             cv2.rectangle(output_img, (cx - box_w//2, cy - box_h//2), (cx + box_w//2, cy + box_h//2), (255, 255, 0), 3)
@@ -370,7 +465,11 @@ def handler(event, context):
         cv2.circle(output_img, (cx, cy), r, (0, 165, 255), 4)
         cv2.line(output_img, (cx-r-80, cy), (cx+r+80, cy), (0, 165, 255), 3)
         cv2.line(output_img, (cx, cy-r-80), (cx, cy+r+80), (0, 165, 255), 3)
-        acc = random.uniform(95.5, 99.9)
+        try:
+            _sharp = cv2.Laplacian(cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY), cv2.CV_64F).var()
+            acc = min(96.0, 88.0 + min(8.0, float(_sharp) / 500.0))
+        except Exception:
+            acc = 90.0
         cv2.putText(output_img, f"THERMAL SIGNATURE: LOCKED ({acc:.1f}%)", (cx+r+20, cy-20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 165, 255), 2)
         detect_count = 1
 
