@@ -97,9 +97,15 @@ def handler(event, context):
             water_bright = cv2.bitwise_and(output_img, output_img, mask=water_mask)
             output_img = cv2.add(land_dark, water_bright)
             
-            # ADVANCED TECHNIQUE: Shape Wrapping
-            # Draw a sleek tactical polygon that exactly wraps the canal (replacing the big square)
-            cv2.drawContours(output_img, [largest_cnt], 0, (255, 200, 0), 2)
+            # ADVANCED TECHNIQUE: True Shoreline Wrapping (No Border Crossing)
+            shore_mask = cv2.Canny(water_mask, 100, 200)
+            # Erase image borders to prevent the line from cutting across the water
+            shore_mask[0:4, :] = 0
+            shore_mask[-4:, :] = 0
+            shore_mask[:, 0:4] = 0
+            shore_mask[:, -4:] = 0
+            shore_mask = cv2.dilate(shore_mask, np.ones((3,3), np.uint8), iterations=1)
+            output_img[shore_mask > 0] = [255, 200, 0]
             
             # ERODE the mask to entirely exclude shorelines, docks, and attached landmasses
             water_mask = cv2.erode(water_mask, np.ones((15,15), np.uint8), iterations=1)
