@@ -46,7 +46,7 @@ def handler(event, context):
                 return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"}, "body": json.dumps({"cached": False, "country": c})}
             age = int(time.time()) - int(it.get('updated_at', 0))
             return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"},
-                "body": json.dumps({"cached": True, "country": c, "updated_at": it.get('updated_at'), "age_hours": round(age / 3600, 1), "stale": age > 86400, "assets": json.loads(it.get('payload', '[]'))})}
+                "body": json.dumps({"cached": True, "country": c, "updated_at": int(it.get('updated_at', 0)), "age_hours": round(age / 3600, 1), "stale": age > 86400, "assets": json.loads(it.get('payload', '[]'))})}
         except Exception as e:
             return {"statusCode": 500, "headers": {"Access-Control-Allow-Origin": "*"}, "body": json.dumps({"error": str(e)})}
 
