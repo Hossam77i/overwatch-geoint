@@ -40,38 +40,56 @@ def handler(event, context):
         lat = float(body.get('lat', 30.5852))
         lon = float(body.get('lon', 32.3503))
         scan_filter = body.get('filter', 'maritime')
+        
+        # Determine bounding box and dynamic resolution
+        bbox = body.get('bbox')
+        if bbox and len(bbox) == 4:
+            south, north, west, east = map(float, bbox)
+            w_deg = east - west
+            h_deg = north - south
+            if h_deg > w_deg:
+                img_h = 4000
+                img_w = int(4000 * (w_deg / h_deg))
+            else:
+                img_w = 4000
+                img_h = int(4000 * (h_deg / w_deg))
+        else:
+            d = 0.1
+            west, east = lon - d, lon + d
+            south, north = lat - d, lat + d
+            img_w, img_h = 1600, 1600
+            
+        is_macro_scan = (bbox is not None)
+        
+        # High-res export from ArcGIS
+        url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size={img_w},{img_h}&f=image"
+        
+        img_path = "/tmp/target.jpg"
+        response = requests.get(url)
+        with open(img_path, 'wb') as f: f.write(response.content)
+
+        img = cv2.imread(img_path)
+        if img is None:
+            img = np.zeros((img_h, img_w, 3), dtype=np.uint8)
+        else:
+            img = cv2.resize(img, (img_w, img_h), interpolation=cv2.INTER_CUBIC)
+        
+        output_img = img.copy()
+        
+        cx = img_w // 2
+        cy = img_h // 2
+        
+        detect_count = 0
+        import random
+    
     except:
         lat, lon, scan_filter = 30.5852, 32.3503, 'maritime'
+        img_w, img_h = 1600, 1600
+        west, south, east, north = lon-0.1, lat-0.1, lon+0.1, lat+0.1
+        output_img = np.zeros((img_h, img_w, 3), dtype=np.uint8)
+        cx, cy = 800, 800
+        detect_count = 0
 
-    # Define a tactical bounding box (e.g. ~22km x 22km)
-    width_deg = 0.2
-    height_deg = 0.2
-    west = lon - width_deg / 2
-    east = lon + width_deg / 2
-    south = lat - height_deg / 2
-    north = lat + height_deg / 2
-
-    # Fetch dynamically rendered satellite composite perfectly centered on target (200% scale)
-    url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size=1600,1600&f=image"
-    
-    img_path = "/tmp/target.jpg"
-    response = requests.get(url)
-    with open(img_path, 'wb') as f: f.write(response.content)
-
-    img = cv2.imread(img_path)
-    if img is None:
-        img = np.zeros((1600, 1600, 3), dtype=np.uint8)
-    else:
-        img = cv2.resize(img, (1600, 1600), interpolation=cv2.INTER_CUBIC)
-    
-    output_img = img.copy()
-    
-    cx = 800
-    cy = 800
-    
-    detect_count = 0
-    import random
-    
     if scan_filter == 'maritime':
         # REAL ADVANCED COMPUTER VISION - MARITIME ANOMALY DETECTION (HYPER-ACCURATE)
         gray = cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY)
@@ -117,6 +135,12 @@ def handler(event, context):
             
             ship_cnts, _ = cv2.findContours(water_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
+            # Dynamic scaling for Sea-to-Sea massive scanning
+            min_area = 2 if is_macro_scan else 15
+            max_area = 200 if is_macro_scan else 500
+            min_extent = 0.2 if is_macro_scan else 0.45
+            min_aspect = 1.2 if is_macro_scan else 1.8
+            
             for cnt in ship_cnts:
                 # Use minAreaRect to calculate true structural dimensions regardless of rotation
                 rect = cv2.minAreaRect(cnt)
@@ -128,8 +152,8 @@ def handler(event, context):
                     cnt_area = cv2.contourArea(cnt)
                     extent = cnt_area / area if area > 0 else 0
                     
-                    # Extreme Structural Filter: Drop max area to 500 to completely reject islands
-                    if 15 < area < 500 and aspect_ratio > 1.8 and extent > 0.45:
+                    # Dynamic Structural Filter based on scale
+                    if min_area < area < max_area and aspect_ratio > min_aspect and extent > min_extent:
                         num_ships += 1
                         
                         # Draw sleek rotated bounding box
