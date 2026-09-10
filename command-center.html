@@ -61,6 +61,18 @@
         .log-entry.warn { color: #ffaa00; }
         .log-entry.macro { color: #ff0055; }
         .log-entry.crisis { color: #ffea00; font-weight: bold; background: rgba(255, 234, 0, 0.1); padding: 10px; border: 1px solid #ffea00; }
+        .log-entry { border-left: 3px solid #333; padding-left: 8px; }
+        .log-entry.success { border-left-color: #0f0; }
+        .log-entry.error { border-left-color: #f00; }
+        .log-entry.warn { border-left-color: #ffaa00; }
+        .log-entry.macro { border-left-color: #ff0055; }
+        .log-entry.crisis { border-left-color: #ffea00; }
+        .log-time { color: #555; font-size: 0.9em; margin-right: 6px; }
+        .live-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #0f0; margin-right: 7px; box-shadow: 0 0 8px #0f0; animation: blink 1.6s infinite; vertical-align: middle; }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+        #logCount { float: right; background: rgba(0,255,204,0.15); border: 1px solid #00ffcc; color: #00ffcc; font-size: 0.8em; padding: 1px 8px; }
+        @keyframes flashNew { from { background: rgba(0,255,204,0.25); } to { background: transparent; } }
+        .log-entry.fresh { animation: flashNew 1.2s ease-out; }
         
         .leaflet-image-layer { opacity: 1.0; mix-blend-mode: normal; }
 
@@ -192,8 +204,8 @@
                 <label><input type="checkbox" id="layer-roads" checked> ⚪ Transnational Highways</label>
             </div>
 
-            <div class="panel" style="flex: 1; overflow-y: auto;">
-                <h3>📡 Live Intel Feed</h3>
+            <div class="panel" id="intelPanel" style="flex: 1; min-height: 230px; overflow-y: auto; border: 1px solid #00ffcc; box-shadow: 0 0 12px rgba(0,255,204,0.25);">
+                <h3><span class="live-dot"></span>📡 Live Intel Feed <span id="logCount">0</span></h3>
                 <div id="logs"></div>
             </div>
         </div>
@@ -201,9 +213,28 @@
     </div>
 
     <script>
-        const map = L.map('map', { center: [20.0, 0.0], zoom: 3, backgroundColor: '#000000', zoomControl: false });
+        // FULL-WORLD SATELLITE, EDGE TO EDGE: fractional zoom fitted so the
+        // planet exactly fills the panel width. No duplicates, no margins,
+        // tiles served at z3 where Esri coverage is complete (no gray gaps).
+        const map = L.map('map', { center: [20.0, 10.0], zoom: 3, backgroundColor: '#000000', zoomControl: false, zoomSnap: 0, zoomDelta: 0.5, maxBounds: [[-90, -180], [90, 180]], maxBoundsViscosity: 0.7 });
         L.control.zoom({ position: 'bottomright' }).addTo(map);
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 18 }).addTo(map);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19, maxNativeZoom: 18, detectRetina: true, noWrap: true }).addTo(map);
+        function fitWorld(forceView) {
+            map.invalidateSize();
+            const w = document.getElementById('map').clientWidth || 1500;
+            const z = Math.log2(w / 256);
+            map.setMinZoom(z);
+            window._fitZ = z;
+            if (forceView) map.setView([20.0, 10.0], z);
+        }
+        fitWorld(true);
+        window.addEventListener('resize', () => {
+            const w = document.getElementById('map').clientWidth || 1500;
+            const z = Math.log2(w / 256);
+            map.setMinZoom(z);
+            window._fitZ = z;
+            if (map.getZoom() < z) map.setView([20.0, 10.0], z);
+        });
 
         const TRIGGER_URL = "https://yyp1jlzcjf.execute-api.us-east-1.amazonaws.com/trigger-overwatch";
         let currentTarget = null;
@@ -236,11 +267,15 @@
 
         function logIntel(msg, type="info") {
             const div = document.createElement("div");
-            div.className = `log-entry ${type}`;
-            div.innerHTML = `> ${msg}`;
+            div.className = `log-entry fresh ${type}`;
+            const t = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            div.innerHTML = `<span class="log-time">[${t}]</span>> ${msg}`;
             const feed = document.getElementById("logs");
             feed.prepend(div);
             while (feed.children.length > 80) feed.removeChild(feed.lastChild);
+            const cc = document.getElementById("logCount");
+            if (cc) cc.textContent = feed.children.length;
+            setTimeout(() => div.classList.remove("fresh"), 1300);
         }
 
         function clearOverlays() {
@@ -250,7 +285,7 @@
 
         function resetView() {
             clearOverlays();
-            map.flyTo([20.0, 0.0], 3, {duration: 1.5});
+            map.flyTo([20.0, 10.0], window._fitZ || 2.5, {duration: 1.5});
             document.getElementById('locationSearch').value = '';
             document.getElementById('suggestBox').style.display = 'none';
             document.getElementById('countrySelect').value = 'GLOBAL';
@@ -412,6 +447,8 @@
                 else if (e.key === "Escape") { box.style.display = "none"; }
             });
             document.addEventListener("click", (e) => { if (!e.target.closest(".search-wrap")) suggBox().style.display = "none"; });
+            logIntel("SYSTEM ONLINE — Global OSINT Engine initialized.", "success");
+            logIntel("Select a country or type a target to begin. Live infra syncs from DB every 24h.", "info");
         });
         async function fetchSuggestions(q) {
             try {
