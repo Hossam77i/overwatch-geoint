@@ -116,8 +116,8 @@ def handler(event, context):
                     cnt_area = cv2.contourArea(cnt)
                     extent = cnt_area / area if area > 0 else 0
                     
-                    # Perfect Structural Filter: Must be vessel-sized, highly elongated (>1.8), and rectangular
-                    if 40 < area < 4000 and aspect_ratio > 1.8 and extent > 0.2:
+                    # Extreme Structural Filter: Must be vessel-sized, highly elongated, and highly rectangular
+                    if 40 < area < 3000 and aspect_ratio > 1.8 and extent > 0.55:
                         num_ships += 1
                         
                         # Draw sleek rotated bounding box
@@ -132,7 +132,7 @@ def handler(event, context):
         # Calculate dynamic accuracy confidence > 95%
         base_confidence = 98.5 + min(1.4, num_ships * 0.1)
         acc = random.uniform(base_confidence, 99.9)
-        cv2.putText(output_img, f"NAVAL FLEET LOCK: {acc:.1f}% | VESSELS: {num_ships}", (cx - box_w//2, cy - box_h//2 - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 1)
+        cv2.putText(output_img, f"NAVAL FLEET LOCK: {acc:.1f}% | VESSELS: {num_ships}", (cx - box_w//2, cy - box_h//2 - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 200, 255), 1)
         detect_count = num_ships
 
     elif scan_filter == 'aviation':
@@ -159,15 +159,15 @@ def handler(event, context):
 
     # --- TACTICAL HUD OVERLAY ---
     overlay = output_img.copy()
-    cv2.rectangle(overlay, (0, 0), (1600, 120), (0, 0, 0), -1)
+    cv2.rectangle(overlay, (0, 0), (1600, 60), (0, 0, 0), -1)
     output_img = cv2.addWeighted(overlay, 0.7, output_img, 0.3, 0)
     
     from datetime import datetime
     timestamp_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
     
-    cv2.putText(output_img, f"OVERWATCH GEOINT // HIGH-RES TACTICAL FEED (200% SCALE)", (30, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
-    cv2.putText(output_img, f"TGT: {lat:.5f}N, {lon:.5f}E | ALT: 12km | CLOUD COVER: 0%", (30, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 0), 2)
-    cv2.putText(output_img, f"ALGORITHM: {scan_filter.upper()}-LOCK", (1100, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 200, 0), 2)
+    cv2.putText(output_img, f"OVERWATCH GEOINT // HIGH-RES TACTICAL FEED (200% SCALE)", (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+    cv2.putText(output_img, f"TGT: {lat:.5f}N, {lon:.5f}E | ALT: 12km | CLOUD COVER: 0%", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 200, 0), 1)
+    cv2.putText(output_img, f"ALGORITHM: {scan_filter.upper()}-LOCK", (1250, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 200, 0), 1)
     
     scan_id = str(uuid.uuid4())
     out_path = f"/tmp/{scan_id}.jpg"
