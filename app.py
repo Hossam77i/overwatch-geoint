@@ -8,9 +8,17 @@ def deg2num(lat_deg, lon_deg, zoom):
     return (xtile, ytile)
 
 def handler(event, context):
+    if event.get('httpMethod') == 'OPTIONS':
+        return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "*", "Access-Control-Allow-Headers": "*"}, "body": ""}
+        
     print("[*] Overwatch GEOINT Triggered - HIGH RES TACTICAL MACRO MODE.")
     
-    body = json.loads(event.get('body', '{}'))
+    try:
+        body_str = event.get('body')
+        if not body_str: body_str = '{}'
+        body = json.loads(body_str)
+    except Exception:
+        body = {}
     
     # --- MACRO OSINT PROXY (Bypass Local IP Blocking) ---
     if body.get('action') == 'macro_osint':
