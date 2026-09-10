@@ -293,39 +293,70 @@
                 ] }
         };
 
+        const INFRA_CATS = ['All', 'Aviation', 'Energy', 'Maritime', 'Military'];
+        function infraMerged() {
+            const seen = new Set(), out = [];
+            [...(window._infraDB || []), ...(window._infraStatic || [])].forEach(a => {
+                const k = (a.n || '').toLowerCase();
+                if (k && !seen.has(k)) { seen.add(k); out.push(a); }
+            });
+            return out;
+        }
+        function paintInfra() {
+            const body = document.getElementById("infraBody");
+            const all = infraMerged();
+            const counts = {};
+            all.forEach(a => counts[a.t] = (counts[a.t] || 0) + 1);
+            const tabs = INFRA_CATS.map(t => {
+                const n = t === 'All' ? all.length : (counts[t] || 0);
+                const on = window._infraFilter === t ? 'border-color:#00ffcc;color:#fff;background:rgba(0,255,204,0.12);' : '';
+                return `<span class="infra-chip" style="cursor:pointer;${on}" onclick="window._infraFilter='${t}';paintInfra()"><b>${n}</b> ${t}</span>`;
+            }).join('');
+            const list = all.filter(a => window._infraFilter === 'All' || a.t === window._infraFilter);
+            const rows = list.slice(0, 300).map(a => `<div class="infra-item" onclick="quickScan('${(a.q || a.n).replace(/'/g, "")}', '${a.k || "macro"}', ${a.lat}, ${a.lon})">▪ ${a.n}<br><span style="color:#888;font-size:0.8em;">${a.t} · ${a.d || ""}</span><span class="infra-badge ${a.c || "ib-op"}">${a.s || "Operational"}</span></div>`).join("");
+            const sync = (window._infraSync && !(window._infraDB || []).length)
+                ? `<div style="color:#888;font-size:0.8em;">⏳ Syncing live DB…</div>`
+                : ((window._infraDB || []).length
+                    ? `<div style="color:#0f0;font-size:0.8em;">● Live DB merged — ${all.length} total places</div>`
+                    : `<div style="color:#888;font-size:0.8em;">Tracked baseline — ${all.length} places</div>`);
+            body.innerHTML = `<div style="color:#fff;margin-bottom:4px;">${window._infraSummary || ""}</div><div class="infra-stat">${tabs}</div>${sync}<div style="max-height:420px;overflow-y:auto;">${rows || '<div style="color:#888">No places in this category.</div>'}</div>`;
+        }
+
         async function loadInfraFromDB(c) {
-            const liveMsg = () => document.getElementById("infraLive");
             try {
                 const r = await fetch(TRIGGER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_infra", country: c }) });
                 const j = await r.json();
-                if (liveMsg()) liveMsg().remove();
+                window._infraSync = false;
                 if (j.cached && j.assets && j.assets.length) {
-                    const body = document.getElementById("infraBody");
-                    const stale = j.stale ? ` <span style="color:#ffaa00">· cache ${j.age_hours}h old, refreshing…</span>` : ` <span style="color:#0f0">· live DB ${j.age_hours}h</span>`;
-                    const rows = j.assets.slice(0, 60).map(a => `<div class="infra-item" onclick="quickScan('${(a.q || a.n).replace(/'/g, "")}', '${a.k || "macro"}', ${a.lat}, ${a.lon})">▪ ${a.n}<br><span style="color:#888;font-size:0.8em;">${a.t} · ${a.d || ""}</span><span class="infra-badge ${a.c || "ib-op"}">${a.s || "Operational"}</span></div>`).join("");
-                    body.innerHTML += `<div class="cat-header">LIVE DB — ${j.assets.length} NODES${stale}</div>` + rows + (j.assets.length > 60 ? `<div style="color:#888;font-size:0.8em;">+${j.assets.length - 60} more in DB</div>` : "");
-                    logIntel(`${c}: ${j.assets.length} live DB nodes merged.`, "success");
+                    window._infraDB = j.assets;
+                    paintInfra();
+                    logIntel(`${c}: ${j.assets.length} live DB nodes merged${j.stale ? " (stale, refreshing)" : ""}.`, "success");
+                } else {
+                    paintInfra();
                 }
                 if (!j.cached || j.stale) fetch(TRIGGER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refresh_infra", country: c }) });
-            } catch (e) { const l = document.getElementById("infraLive"); if (l) l.textContent = "⚠ Live DB unreachable — showing tracked baseline."; }
+            } catch (e) {
+                window._infraSync = false;
+                window._infraDB = [];
+                paintInfra();
+            }
         }
 
         function renderInfra(c) {
-            const body = document.getElementById("infraBody"), title = document.getElementById("infraTitle");
+            const title = document.getElementById("infraTitle");
             if (c === "GLOBAL" || !COUNTRY_INFRA[c]) {
                 title.textContent = "🏗️ Country Infrastructure";
-                body.innerHTML = "Select a country for a professional infrastructure brief.";
+                document.getElementById("infraBody").innerHTML = "Select a country for a professional infrastructure brief.";
+                window._infraStatic = []; window._infraDB = [];
                 return;
             }
             const m = COUNTRY_INFRA[c];
-            const counts = {};
-            m.assets.forEach(a => counts[a.t] = (counts[a.t] || 0) + 1);
-            const chips = Object.entries(counts).map(([k, v]) => `<span class="infra-chip"><b>${v}</b> ${k}</span>`).join("");
-            const rows = m.assets.map((a, i) => `<div class="infra-item" onclick="quickScan('${a.q}', '${a.k}', ${a.lat}, ${a.lon})">▪ ${a.n}<br><span style="color:#888;font-size:0.8em;">${a.t} · ${a.d}</span><span class="infra-badge ${a.c}">${a.s}</span></div>`).join("");
             title.textContent = `${m.flag} ${m.name} — Infrastructure`;
-            body.innerHTML = `<div style="color:#fff;margin-bottom:4px;">${m.summary}</div><div class="infra-stat"><span class="infra-chip"><b>${m.assets.length}</b> tracked</span>${chips}</div>${rows}`;
-            logIntel(`${m.name}: ${m.assets.length} infrastructure nodes loaded.`, "success");
-            body.innerHTML += `<div id="infraLive" style="color:#888;font-size:0.8em;margin-top:6px;">⏳ Syncing live DB…</div>`;
+            window._infraStatic = m.assets; window._infraDB = [];
+            window._infraFilter = window._infraFilter || 'All';
+            window._infraSummary = m.summary; window._infraSync = true;
+            paintInfra();
+            logIntel(`${m.name}: professional brief opened — ${m.assets.length} tracked places.`, "success");
             loadInfraFromDB(c);
         }
 
