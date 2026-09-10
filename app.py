@@ -277,7 +277,7 @@ def handler(event, context):
                     area = w * h
                     ar = max(w, h) / min(w, h)
                     ext = cv2.contourArea(cnt) / area if area > 0 else 0
-                    if not (80 < area < 900 and 1.4 < ar < 5.0 and ext > 0.5):
+                    if not (25 < area < 900 and 1.2 < ar < 6.0 and ext > 0.35):
                         continue
                     # contrast gate: airframe must be clearly brighter than its surroundings
                     x, y, bw, bh = cv2.boundingRect(cnt)
@@ -302,11 +302,11 @@ def handler(event, context):
                             if dfx is not None:
                                 long_side = max(w, h)
                                 for i in range(dfx.shape[0]):
-                                    if dfx[i, 0, 3] / 256.0 > 0.12 * long_side:
+                                    if dfx[i, 0, 3] / 256.0 > 0.10 * long_side:
                                         ndef += 1
                     except Exception:
                         continue
-                    if ndef < 3:
+                    if ndef < 2:
                         continue
                     boxes.append((rect, ext, (rcx, rcy)))
                 boxes.sort(key=lambda t: -(t[0][1][0] * t[0][1][1]))
