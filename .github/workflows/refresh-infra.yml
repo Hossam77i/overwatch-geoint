@@ -1,0 +1,22 @@
+name: Refresh infra cache (daily, all countries)
+
+on:
+  schedule:
+    - cron: "30 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh all 5 countries sequentially (rate-limit safe)
+        env:
+          TRIGGER: ${{ secrets.OVERWATCH_TRIGGER_URL }}
+        run: |
+          for c in EGYPT IRAN RUSSIA NORTH_KOREA SAUDI_ARABIA; do
+            echo "== $c =="
+            curl -s -X POST "$TRIGGER" -H 'Content-Type: application/json' \
+              -d "{\"action\":\"refresh_infra\",\"country\":\"$c\"}" --max-time 55 || true
+            echo
+            sleep 45
+          done

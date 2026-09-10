@@ -93,8 +93,10 @@ def handler(event, context):
         try:
             if body.get('action') == 'refresh_infra':
                 countries = [(body.get('country') or 'EGYPT').upper()]
-            else:
+            elif body.get('action') == 'refresh_all_infra':
                 countries = ['EGYPT', 'IRAN', 'RUSSIA', 'NORTH_KOREA', 'SAUDI_ARABIA']
+            else:  # daily EventBridge backup: rotate one country/day (fits 60s Lambda)
+                countries = [['EGYPT', 'IRAN', 'RUSSIA', 'NORTH_KOREA', 'SAUDI_ARABIA'][int(time.time() // 86400) % 5]]
             done, errors = {}, {}
             for c in countries:
                 try:
