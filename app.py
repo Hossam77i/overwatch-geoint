@@ -76,8 +76,9 @@ def handler(event, context):
         # REAL ADVANCED COMPUTER VISION - MARITIME ANOMALY DETECTION (HYPER-ACCURATE)
         gray = cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY)
         
-        # Hyper-Accurate Canal/Sea Isolation (Largest dark connected component)
-        _, thresh = cv2.threshold(gray, 95, 255, cv2.THRESH_BINARY_INV)
+        # Hyper-Accurate Canal/Sea Isolation (Adaptive Otsu Thresholding)
+        # Replaces brittle hardcoded 95 limit with dynamic split to handle bright coastal waters like Alexandria
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         kernel = np.ones((10,10), np.uint8)
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
         
@@ -128,8 +129,12 @@ def handler(event, context):
                     cnt_area = cv2.contourArea(cnt)
                     extent = cnt_area / area if area > 0 else 0
                     
-                    # Extreme Structural Filter: Drop max area to 500 to completely reject islands
-                    if 15 < area < 500 and aspect_ratio > 1.8 and extent > 0.45:
+                    # Extreme Structural Filter: 
+                    # 1. 15 < area < 500 (Isolates ships, rejects islands)
+                    # 2. 1.8 < aspect_ratio < 8.0 (Rejects perfectly straight map tile stitching lines)
+                    # 3. min(w,h) >= 2.5 (Rejects 1-pixel thin wave crests and boundary artifacts)
+                    # 4. extent > 0.45 (Rejects non-rectangular random noise)
+                    if 15 < area < 500 and 1.8 < aspect_ratio < 8.0 and extent > 0.45 and min(w, h) >= 2.5:
                         num_ships += 1
                         
                         # Draw sleek rotated bounding box
