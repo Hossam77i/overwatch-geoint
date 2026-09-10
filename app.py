@@ -254,7 +254,7 @@ def handler(event, context):
         try:
             dw, dh = 0.025, 0.025
             durl = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={lon-dw},{lat-dh},{lon+dw},{lat+dh}&bboxSR=4326&imageSR=4326&size=2048,2048&f=image"
-            dr = requests.get(durl, timeout=12)
+            dr = requests.get(durl, timeout=25)
             detail = cv2.imdecode(np.frombuffer(dr.content, np.uint8), cv2.IMREAD_COLOR)
             if detail is None:
                 raise ValueError("detail fetch failed")
