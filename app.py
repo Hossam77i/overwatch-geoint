@@ -368,12 +368,38 @@ def handler(event, context):
                     lat_val = ac.get('lat')
                     if lon_val is not None and lat_val is not None:
                         vel_ms = ac.get('gs', 0) * 0.514444 # knots to m/s
+                        
+                        # Convert altitude from feet (ADSB.lol default) to meters
+                        alt_ft = ac.get('alt_baro')
+                        alt_m = (alt_ft * 0.3048) if alt_ft is not None else 0
+                        
+                        # Decrypt National Registry from ICAO Hex Block
+                        h = ac.get('hex', '').upper()
+                        reg = ac.get('r', '')
+                        c = "Unknown"
+                        if h.startswith('A'): c = "United States"
+                        elif h.startswith('C0') or h.startswith('C1') or h.startswith('C2') or h.startswith('C3'): c = "Canada"
+                        elif h.startswith('40') or h.startswith('41') or h.startswith('42') or h.startswith('43'): c = "United Kingdom"
+                        elif h.startswith('38') or h.startswith('39') or h.startswith('3A'): c = "France"
+                        elif h.startswith('3C') or h.startswith('3D') or h.startswith('3E') or h.startswith('3F'): c = "Germany"
+                        elif h.startswith('14') or h.startswith('15'): c = "Russia"
+                        elif h.startswith('78') or h.startswith('79') or h.startswith('7A') or h.startswith('7B'): c = "China"
+                        elif h.startswith('010'): c = "Egypt"
+                        elif h.startswith('7C'): c = "Australia"
+                        elif h.startswith('80'): c = "India"
+                        elif h.startswith('4B'): c = "Turkey"
+                        elif h.startswith('06A'): c = "Greece"
+                        elif h.startswith('48'): c = "Poland"
+                        elif h.startswith('44') or h.startswith('45'): c = "Europe (EU)"
+                        
+                        origin = f"{c} [{reg}]" if reg else c
+                        
                         opensky_states.append([
-                            ac.get('hex', 'unknown'),
+                            h,
                             ac.get('flight', '').strip(),
-                            "Unknown", None, None,
+                            origin, None, None,
                             lon_val, lat_val,
-                            ac.get('alt_baro'),
+                            alt_m,
                             False,
                             vel_ms,
                             ac.get('track', 0),
