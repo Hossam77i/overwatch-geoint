@@ -538,6 +538,7 @@
         }
 
         let suggTimer = null, suggItems = [], suggIdx = -1;
+        const _suggCache = {}; // Local memory cache to protect API limits
         const searchInput = () => document.getElementById("locationSearch");
         const suggBox = () => document.getElementById("suggestBox");
         document.addEventListener("DOMContentLoaded", () => {
@@ -547,7 +548,8 @@
                 if (currentTarget) currentTarget.locked = false; // user typed: re-resolve on scan
                 const q = inp.value.trim();
                 if (q.length < 3) { suggBox().style.display = "none"; return; }
-                suggTimer = setTimeout(() => fetchSuggestions(q), 300);
+                // Professional Debounce (800ms) to strictly obey Nominatim 1req/sec limit
+                suggTimer = setTimeout(() => fetchSuggestions(q), 800);
             });
             inp.addEventListener("keydown", (e) => {
                 const box = suggBox();
@@ -559,15 +561,29 @@
             });
             document.addEventListener("click", (e) => { if (!e.target.closest(".search-wrap")) suggBox().style.display = "none"; });
             logIntel("SYSTEM ONLINE — Global OSINT Engine initialized.", "success");
-            logIntel("Select a country or type a target to begin. Live infra syncs from DB every 24h.", "info");
+            logIntel("Select a country or type a target to begin. Live infra syncs every 6h.", "info");
         });
         async function fetchSuggestions(q) {
             try {
                 const c = document.getElementById("countrySelect").value;
-                const hint = { EGYPT: "eg", IRAN: "ir", RUSSIA: "ru", NORTH_KOREA: "kp", SAUDI_ARABIA: "sa" }[c];
-                const url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&q=${encodeURIComponent(q)}${hint ? `&countrycodes=${hint}` : ""}`;
+                const hintMap = { EGYPT: "eg", IRAN: "ir", RUSSIA: "ru", NORTH_KOREA: "kp", SAUDI_ARABIA: "sa", CHINA: "cn", USA: "us", ISRAEL: "il", UK: "gb", FRANCE: "fr", GERMANY: "de", INDIA: "in", PAKISTAN: "pk", SYRIA: "sy", UKRAINE: "ua" };
+                const hint = hintMap[c] || "";
+                
+                const cacheKey = q.toLowerCase() + "_" + hint;
+                if (_suggCache[cacheKey]) {
+                    suggItems = _suggCache[cacheKey];
+                    suggIdx = -1;
+                    paintSugg();
+                    return;
+                }
+
+                const url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=en&q=${encodeURIComponent(q)}${hint ? `&countrycodes=${hint}` : ""}`;
                 const res = await fetch(url);
+                if (!res.ok) throw new Error("API Limit");
+                
                 suggItems = await res.json();
+                _suggCache[cacheKey] = suggItems; // Store to avoid repeating requests
+                
                 suggIdx = -1;
                 paintSugg();
             } catch (err) { suggBox().style.display = "none"; }
