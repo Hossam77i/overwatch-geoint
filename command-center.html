@@ -332,67 +332,79 @@
             }
         }
 
+        const radarQueue = [];
+        let radarQueueProcessing = false;
+
+        async function processRadarQueue() {
+            if (radarQueueProcessing) return;
+            radarQueueProcessing = true;
+            
+            while (radarQueue.length > 0) {
+                const req = radarQueue.shift();
+                try {
+                    const res = await fetch(`https://opensky-network.org/api/states/all?lamin=${req.s}&lomin=${req.w}&lamax=${req.n}&lomax=${req.e}`);
+                    if (!res.ok) {
+                        if (res.status === 429) throw new Error("RateLimit");
+                        continue;
+                    }
+                    const data = await res.json();
+                    if (data && data.states) renderRadarData(data.states);
+                } catch(e) {
+                    if (e.message === "RateLimit") {
+                        logIntel("[RADAR] API Throttle Hit. Re-queueing request...", "warn");
+                        radarQueue.unshift(req); // Put back in front of queue
+                        await new Promise(r => setTimeout(r, 5000)); // Backoff
+                    }
+                }
+                // Rate limit mechanism: enforce strict 1.5s delay between requests
+                await new Promise(r => setTimeout(r, 1500));
+            }
+            radarQueueProcessing = false;
+        }
+
         async function fetchLiveRadar() {
             if (!radarActive) return;
-            
             const bounds = map.getBounds();
-            // OpenSky bounding box: lamin, lomin, lamax, lomax
             const lamin = bounds.getSouth(), lomin = bounds.getWest();
             const lamax = bounds.getNorth(), lomax = bounds.getEast();
             
-            // Allow country-wide bounding boxes (up to 80x80 degrees).
-            // If the user is viewing the whole globe, OpenSky will reject it.
-            if (Math.abs(lamax - lamin) > 80 || Math.abs(lomax - lomin) > 80) {
-                logIntel("[RADAR] Area too large for API. Please zoom into a specific country or region.", "error");
-                radarMarkers.forEach(m => map.removeLayer(m));
-                radarMarkers = [];
-                return;
+            radarMarkers.forEach(m => map.removeLayer(m));
+            radarMarkers = [];
+            
+            // Chunking Mechanism: If area is large, queue multiple smaller requests
+            const w = lamax - lamin;
+            const h = lomax - lomin;
+            
+            if (w > 20 || h > 20) {
+                logIntel("[RADAR] Massive Sector Detected. Chunking and queueing requests to avoid API bans...", "info");
+                const midLat = lamin + (w/2);
+                const midLon = lomin + (h/2);
+                // Push 4 quadrants to the queue
+                radarQueue.push({s: lamin, w: lomin, n: midLat, e: midLon});
+                radarQueue.push({s: lamin, w: midLon, n: midLat, e: lomax});
+                radarQueue.push({s: midLat, w: lomin, n: lamax, e: midLon});
+                radarQueue.push({s: midLat, w: midLon, n: lamax, e: lomax});
+            } else {
+                radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax});
             }
+            
+            processRadarQueue();
+        }
 
-            try {
-                const res = await fetch(`https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`);
-                if (!res.ok) throw new Error("API Limit / No Data");
-                const data = await res.json();
-                
-                // Clear old markers
-                radarMarkers.forEach(m => map.removeLayer(m));
-                radarMarkers = [];
-
-                if (!data || !data.states) return;
-                
-                data.states.forEach(state => {
-                    const callsign = (state[1] || "UNKNOWN").trim();
-                    const lon = state[5], lat = state[6];
-                    const alt = state[7] || 0; // meters
-                    const vel = state[9] || 0; // m/s
-                    const track = state[10] || 0; // degrees
-
-                    if (lon && lat) {
-                        // Custom SVG icon rotated by track
-                        const planeIcon = L.divIcon({
-                            html: `<div style="transform: rotate(${track}deg); color: #ffea00; font-size: 16px; text-shadow: 0 0 5px #000;">✈</div>
-                                   <div style="color: #00ffcc; font-size: 9px; font-family: monospace; white-space: nowrap; margin-top: -4px;">${callsign}</div>`,
-                            className: 'radar-plane',
-                            iconSize: [20, 20],
-                            iconAnchor: [10, 10]
-                        });
-                        
-                        const m = L.marker([lat, lon], { icon: planeIcon }).addTo(map);
-                        m.bindPopup(`
-                            <div style="color:#00ffcc; font-family:monospace;">
-                                <b>FLIGHT: ${callsign}</b><br>
-                                Alt: ${(alt).toFixed(0)} m<br>
-                                Spd: ${(vel * 3.6).toFixed(0)} km/h<br>
-                                Hdg: ${track.toFixed(0)}°
-                            </div>
-                        `);
-                        radarMarkers.push(m);
-                    }
-                });
-            } catch(e) {
-                console.log("Radar fetch error:", e);
-                logIntel("[RADAR] Feed interrupted. OpenSky API rate limit reached or area too large. Retrying soon...", "warn");
-            }
+        function renderRadarData(states) {
+            states.forEach(state => {
+                const callsign = (state[1] || "UNKNOWN").trim();
+                const lon = state[5], lat = state[6], alt = state[7] || 0, vel = state[9] || 0, track = state[10] || 0;
+                if (lon && lat) {
+                    const planeIcon = L.divIcon({
+                        html: `<div style="transform: rotate(${track}deg); color: #ffea00; font-size: 16px; text-shadow: 0 0 5px #000;">✈</div><div style="color: #00ffcc; font-size: 9px; font-family: monospace; white-space: nowrap; margin-top: -4px;">${callsign}</div>`,
+                        className: 'radar-plane', iconSize: [20, 20], iconAnchor: [10, 10]
+                    });
+                    const m = L.marker([lat, lon], { icon: planeIcon }).addTo(map);
+                    m.bindPopup(`<div style="color:#00ffcc; font-family:monospace;"><b>FLIGHT: ${callsign}</b><br>Alt: ${(alt).toFixed(0)} m<br>Spd: ${(vel * 3.6).toFixed(0)} km/h<br>Hdg: ${track.toFixed(0)}°</div>`);
+                    radarMarkers.push(m);
+                }
+            });
         }
         // Refresh radar automatically if panning while active
         map.on('moveend', () => { if (radarActive) fetchLiveRadar(); });
