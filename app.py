@@ -337,6 +337,26 @@ def handler(event, context):
     south = lat - height_deg / 2
     north = lat + height_deg / 2
 
+    # If the frontend is requesting Live Radar (CORS Proxy bypass)
+    if scan_filter == 'radar':
+        import urllib.request
+        try:
+            url = f"https://opensky-network.org/api/states/all?lamin={south}&lomin={west}&lamax={north}&lomax={east}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Overwatch-GeoINT-Serverless'})
+            with urllib.request.urlopen(req, timeout=4.0) as res:
+                data = json.loads(res.read().decode())
+                return {
+                    "statusCode": 200,
+                    "headers": {"Access-Control-Allow-Origin": "*"},
+                    "body": json.dumps({"status": "success", "radar_data": data})
+                }
+        except Exception as e:
+            return {
+                "statusCode": 500,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"status": "error", "message": str(e)})
+            }
+
     # Fetch dynamically rendered satellite composite perfectly centered on target (200% scale)
     url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size=2048,2048&f=image"
     

@@ -356,23 +356,38 @@
                     const w = Math.max(-179.9, Math.min(179.9, req.w)).toFixed(4);
                     const e = Math.max(-179.9, Math.min(179.9, req.e)).toFixed(4);
                     
-                    // Safety check for inverted bounds
-                    if (parseFloat(s) >= parseFloat(n) || parseFloat(w) >= parseFloat(e)) {
-                        continue; // Skip invalid geometry chunks
-                    }
+                    // Backend Serverless Proxy (Bypasses Browser CORS Blocks & IP Bans)
+                    const w_width = e - w;
+                    const w_height = n - s;
+                    const c_lat = (parseFloat(s) + parseFloat(n)) / 2;
+                    const c_lon = (parseFloat(w) + parseFloat(e)) / 2;
 
-                    const apiUrl = `https://opensky-network.org/api/states/all?lamin=${s}&lomin=${w}&lamax=${n}&lomax=${e}`;
+                    const res = await fetch('https://lq1y80l00b.execute-api.us-east-1.amazonaws.com/prod/scan', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            lat: c_lat, 
+                            lon: c_lon, 
+                            width_deg: w_width, 
+                            height_deg: w_height, 
+                            filter: 'radar' 
+                        }),
+                        signal: controller.signal
+                    });
                     
-                    const res = await fetch(apiUrl, { signal: controller.signal });
                     clearTimeout(timeoutId);
                     
                     if (!res.ok) {
-                        if (res.status === 429) throw new Error("RateLimit");
-                        if (res.status === 400) throw new Error("BadRequest (Area too large or invalid)");
-                        throw new Error(`HTTP ${res.status}`);
+                        throw new Error(`Proxy HTTP ${res.status}`);
                     }
                     
-                    const data = await res.json();
+                    const proxyData = await res.json();
+                    
+                    if (proxyData.status === "error") {
+                        throw new Error(`OpenSky Error: ${proxyData.message}`);
+                    }
+
+                    const data = proxyData.radar_data;
                     
                     if (data && data.states && Array.isArray(data.states) && data.states.length > 0) {
                         renderRadarData(data.states);
@@ -381,12 +396,8 @@
                     }
                 } catch(e) {
                     clearTimeout(timeoutId);
-                    if (e.name === 'AbortError') {
-                        logIntel("[RADAR] Target Sensor Timeout. OpenSky API is dropping packets (Graylisted).", "error");
-                    } else if (e.message === "RateLimit") {
-                        logIntel("[RADAR] API Throttle Hit (429). Pausing requests to recover...", "warn");
-                        radarQueue.length = 0; 
-                        await new Promise(r => setTimeout(r, 5000));
+                    if (e.name === 'AbortError' || (e.message && e.message.includes('Timeout'))) {
+                        logIntel("[RADAR] Target Sensor Timeout. Backend proxy dropped connection.", "error");
                     } else {
                         logIntel(`[RADAR] Connection failure: ${e.message}`, "error");
                     }
