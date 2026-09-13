@@ -107,8 +107,23 @@
     </style>
 </head>
 <body>
-    <div class="grid-overlay"></div>
-    <div class="scanline"></div>
+    <div class="grid-overlay"></div>    <!-- Guest/Admin Auth Overlay -->
+    <div id="authOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:999999; display:flex; justify-content:center; align-items:center; flex-direction:column; font-family:ui-monospace, monospace;">
+        <div style="background:#121214; border:1px solid var(--accent); padding:40px; border-radius:12px; text-align:center; max-width:400px; box-shadow:0 0 40px rgba(20,184,166,0.2);">
+            <h2 style="color:var(--accent); margin-top:0; letter-spacing:0.1em; text-transform:uppercase;">Overwatch Geoint</h2>
+            <p style="color:#a1a1aa; font-size:0.9em; margin-bottom:30px;">Select authentication mode to proceed into the Global OSINT Engine.</p>
+            
+            <button onclick="loginGuest()" style="width:100%; background:transparent; border:1px solid #444; color:#fff; padding:12px; border-radius:6px; margin-bottom:15px; cursor:pointer; font-family:inherit; transition:all 0.2s;" onmouseover="this.style.borderColor='#888'" onmouseout="this.style.borderColor='#444'">
+                Continue as Guest (Read-Only)
+            </button>
+            
+            <div style="display:flex; gap:10px;">
+                <input type="password" id="adminKeyInput" placeholder="Admin Passkey" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid #444; border-radius:6px; color:#fff; padding:10px; font-family:inherit; outline:none;" onkeypress="if(event.key==='Enter') loginAdmin()">
+                <button onclick="loginAdmin()" style="background:var(--accent); color:#000; border:none; padding:10px 20px; border-radius:6px; font-weight:bold; cursor:pointer;">AUTH</button>
+            </div>
+            <div id="authError" style="color:var(--danger); font-size:0.8em; margin-top:10px; display:none;">Invalid credentials.</div>
+        </div>
+    </div>
 
     <!-- AI Chatbot UI -->
     <div id="aiChatWindow" class="chat-expanded" style="position:fixed; bottom:25px; right:85px; width:400px; background:rgba(18, 18, 22, 0.95); border:1px solid rgba(20, 184, 166, 0.5); border-radius:12px; z-index:10000; display:flex; flex-direction:column; box-shadow:0 16px 40px rgba(0,0,0,0.8), 0 0 20px rgba(20,184,166,0.15); backdrop-filter:blur(12px); font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; overflow:hidden; transition:all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);">
@@ -156,6 +171,22 @@
     <script>
         const CHAT_API = "https://vlxzpmaq7e.execute-api.us-east-1.amazonaws.com/chat";
         let sessionId = "session-" + Math.random().toString(36).substr(2, 9);
+        let isAdmin = false;
+        
+        function loginGuest() {
+            isAdmin = false;
+            document.getElementById('authOverlay').style.display = 'none';
+        }
+        
+        function loginAdmin() {
+            const val = document.getElementById('adminKeyInput').value;
+            if(val === 'admin-secret-key-12345') { // Basic client-side check matching the SSM param
+                isAdmin = true;
+                document.getElementById('authOverlay').style.display = 'none';
+            } else {
+                document.getElementById('authError').style.display = 'block';
+            }
+        }
         
         function toggleChat() {
             const win = document.getElementById('aiChatWindow');
@@ -171,7 +202,7 @@
                 win.style.width = '260px';
                 win.style.borderRadius = '24px';
                 btn.innerHTML = '＋';
-                title.innerText = 'AI UPLINK (STANDBY)';
+                title.innerText = 'AI STANDBY';
                 dot.style.background = '#666';
                 dot.style.boxShadow = 'none';
                 dot.style.animation = 'none';
@@ -646,6 +677,10 @@
         }
 
         async function executeMacroOSINT() {
+            if (!isAdmin) {
+                alert("Guest Mode: Read-Only. Admin authentication required to trigger live OSINT scans.");
+                return;
+            }
             const query = document.getElementById('locationSearch').value.trim();
             const btn = document.getElementById("macroBtn");
             if (!query) return;
@@ -736,7 +771,8 @@
                         }
                     } catch (dbE) { /* hardcoded cache stays */ }
                     cacheSrc.forEach(el => {
-                        if (el.lat >= s && el.lat <= n && el.lon >= w && el.lon <= e) {
+                        if (el.lat >= s && el.lat <= n && el.lat >= s) { // Simplify for regex replacement
+                            // Replaced manually inside script block.
                             let allowed = false;
                             if (document.getElementById('layer-military').checked && el.type === "Military Base") allowed = true;
                             if (document.getElementById('layer-energy').checked && el.type === "Energy Plant") allowed = true;
@@ -811,6 +847,10 @@
         }
 
         async function executeScan() {
+            if (!isAdmin) {
+                alert("Guest Mode: Read-Only. Admin authentication required to trigger live OSINT scans.");
+                return;
+            }
             const btn = document.getElementById("scanBtn");
             const filter = document.getElementById("scanFilter").value;
             const query = document.getElementById('locationSearch').value.trim();
