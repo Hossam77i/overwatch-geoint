@@ -110,6 +110,68 @@
     <div class="grid-overlay"></div>
     <div class="scanline"></div>
 
+    <!-- AI Chatbot UI -->
+    <div id="aiChatWindow" style="position:fixed; bottom:20px; right:20px; width:340px; background:var(--panel-2); border:1px solid var(--accent); border-radius:10px; z-index:10000; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+        <div style="background:var(--accent); color:var(--on-accent); padding:10px; font-weight:bold; border-top-left-radius:9px; border-top-right-radius:9px; display:flex; justify-content:space-between; cursor:pointer;" onclick="toggleChat()">
+            <span>🤖 AI Security Assistant</span>
+            <span id="chatToggleBtn">_</span>
+        </div>
+        <div id="chatBody" style="display:flex; flex-direction:column;">
+            <div id="chatHistory" style="height:250px; overflow-y:auto; padding:10px; font-size:0.85em; color:var(--text); display:flex; flex-direction:column; gap:8px;">
+                <div style="background:rgba(20,184,166,0.1); border-left:3px solid var(--accent); padding:8px; border-radius:4px;">Hello. I am the AI construct for this project. How can I assist you in understanding this architecture?</div>
+            </div>
+            <div style="display:flex; border-top:1px solid var(--border);">
+                <input type="text" id="chatInput" placeholder="Ask about this project..." style="flex:1; border:none; border-radius:0; border-bottom-left-radius:9px; background:var(--panel);" onkeypress="if(event.key==='Enter') sendChat()">
+                <button onclick="sendChat()" style="background:var(--accent); color:var(--on-accent); border:none; padding:0 15px; border-bottom-right-radius:9px; font-weight:bold; cursor:pointer;">▶</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const CHAT_API = "https://vlxzpmaq7e.execute-api.us-east-1.amazonaws.com/chat";
+        let sessionId = "session-" + Math.random().toString(36).substr(2, 9);
+        function toggleChat() {
+            const body = document.getElementById('chatBody');
+            const btn = document.getElementById('chatToggleBtn');
+            if(body.style.display === 'none') { body.style.display = 'flex'; btn.innerText = '_'; }
+            else { body.style.display = 'none'; btn.innerText = '□'; }
+        }
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const history = document.getElementById('chatHistory');
+            const msg = input.value.trim();
+            if(!msg) return;
+            
+            input.value = '';
+            history.innerHTML += `<div style="align-self:flex-end; background:var(--border); padding:8px; border-radius:4px; max-width:85%;">${msg}</div>`;
+            history.scrollTop = history.scrollHeight;
+            
+            const loadingId = "load-" + Date.now();
+            history.innerHTML += `<div id="${loadingId}" style="align-self:flex-start; color:var(--accent); font-style:italic; font-size:0.9em;">Analyzing...</div>`;
+            history.scrollTop = history.scrollHeight;
+
+            try {
+                const res = await fetch(CHAT_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg, session_id: sessionId })
+                });
+                const data = await res.json();
+                document.getElementById(loadingId).remove();
+                if(res.status === 429) {
+                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(239,68,68,0.1); border-left:3px solid var(--danger); padding:8px; border-radius:4px; max-width:85%; color:var(--danger);">${data.error}</div>`;
+                } else if(data.reply) {
+                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(20,184,166,0.1); border-left:3px solid var(--accent); padding:8px; border-radius:4px; max-width:85%;">${data.reply}</div>`;
+                } else {
+                    history.innerHTML += `<div style="align-self:flex-start; color:var(--danger);">Connection failed.</div>`;
+                }
+            } catch (e) {
+                document.getElementById(loadingId).remove();
+                history.innerHTML += `<div style="align-self:flex-start; color:var(--danger);">Error reaching AI.</div>`;
+            }
+            history.scrollTop = history.scrollHeight;
+        }
+    </script>
+
     <div id="targetModal" style="display:none; position:absolute; top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9999; justify-content:center; align-items:center; font-family:inherit;">
         <div style="background:var(--panel); border:1px solid var(--border); padding:22px; width:450px; max-width:92vw; color:var(--text); border-radius:12px; box-shadow: 0 12px 32px rgba(0,0,0,0.5);">
             <h3 style="color:var(--accent-hi); margin-top:0; border-bottom:1px solid var(--border); padding-bottom:10px; font-size:1em; letter-spacing:0.06em;">TACTICAL SECTOR REQUIRED</h3>
