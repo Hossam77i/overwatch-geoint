@@ -507,11 +507,12 @@
                         const icon = L.divIcon({ html: htmlContent, className: 'radar-plane', iconSize: [20, 20], iconAnchor: [10, 10] });
                         activePlanes[icao].marker.setIcon(icon);
                         activePlanes[icao].lastSeen = now;
+                        activePlanes[icao].data = { callsign, alt, vel, track, lat, lon };
                     } else {
                         // Create new plane
                         const icon = L.divIcon({ html: htmlContent, className: 'radar-plane', iconSize: [20, 20], iconAnchor: [10, 10] });
                         const m = L.marker([lat, lon], { icon: icon }).addTo(map).bindPopup(popupContent);
-                        activePlanes[icao] = { marker: m, lastSeen: now };
+                        activePlanes[icao] = { marker: m, lastSeen: now, data: { callsign, alt, vel, track, lat, lon } };
                     }
                 }
             });
@@ -1183,35 +1184,102 @@
             btn.disabled = true;
             
             try {
+                const country = document.getElementById('countrySelect');
+                const sectorFocus = country.options[country.selectedIndex].text;
+                
+                // 1. Gather Aerospace Data
+                const planeEntries = Object.entries(activePlanes);
+                const activeCount = planeEntries.length;
+                let aviationHtml = '<div style="color:var(--text-2); font-size:12px; margin-bottom: 20px;">No active transponders detected in current sector.</div>';
+                
+                if (activeCount > 0) {
+                    aviationHtml = `
+                    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:11px; text-align:left;">
+                        <thead>
+                            <tr style="border-bottom:2px solid var(--border); color:var(--info);">
+                                <th style="padding:6px;">CALLSIGN</th>
+                                <th style="padding:6px;">HEX</th>
+                                <th style="padding:6px;">ALT (m)</th>
+                                <th style="padding:6px;">SPD (km/h)</th>
+                                <th style="padding:6px;">HDG</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${planeEntries.slice(0, 20).map(([icao, p]) => {
+                                const d = p.data;
+                                if(!d) return '';
+                                return `<tr style="border-bottom:1px solid var(--border);">
+                                    <td style="padding:6px; color:var(--text); font-weight:bold;">${d.callsign || 'UNKNOWN'}</td>
+                                    <td style="padding:6px; color:var(--text-2);">${icao.toUpperCase()}</td>
+                                    <td style="padding:6px; color:var(--warn);">${(d.alt || 0).toFixed(0)}</td>
+                                    <td style="padding:6px; color:var(--warn);">${(d.vel * 3.6).toFixed(0)}</td>
+                                    <td style="padding:6px; color:var(--success);">${(d.track || 0).toFixed(1)}&deg;</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                    ${activeCount > 20 ? `<div style="font-size:10px; color:var(--text-2); margin-top:-10px; margin-bottom:20px;">+ ${activeCount - 20} additional aircraft truncated for operational brevity.</div>` : ''}
+                    `;
+                }
+
+                // 2. Gather Infrastructure Data
+                let infraBody = document.getElementById('infraBody').innerHTML;
+                if (!infraBody || infraBody.includes('Select a country')) {
+                    infraBody = '<div style="color:var(--text-2); font-size:12px;">No macro infrastructure intelligence loaded. (Execute MACRO OSINT to populate).</div>';
+                }
+
+                // 3. Gather Current Threat Feed
+                const marquee = document.getElementById('threat-marquee');
+                const threatFeed = marquee ? marquee.innerText : 'NO ACTIVE THREATS';
+                
                 const element = document.createElement('div');
-                element.style.padding = '30px';
+                element.style.padding = '40px';
                 element.style.backgroundColor = '#09090b';
                 element.style.color = '#e4e4e7';
                 element.style.fontFamily = 'monospace';
                 
-                const activeCount = Object.keys(activePlanes).length;
-                
                 element.innerHTML = `
-                    <h1 style="color:#00ffcc; border-bottom:2px solid #00ffcc; padding-bottom:10px;">OVERWATCH GEOINT - TACTICAL BRIEF</h1>
-                    <p style="color:#a1a1aa;"><strong>GENERATED:</strong> ${new Date().toISOString()}</p>
-                    <p style="color:#a1a1aa;"><strong>SECTOR FOCUS:</strong> ${document.getElementById('countrySelect').value}</p>
-                    <p style="color:#a1a1aa;"><strong>ACTIVE TRANSPONDERS:</strong> ${activeCount}</p>
-                    <h3 style="color:#ffea00; margin-top:20px;">LATEST INTEL FEED</h3>
-                    <div style="background:#18181b; padding:15px; border:1px solid #27272a;">
+                    <h1 style="color:#00ffcc; border-bottom:2px solid #00ffcc; padding-bottom:10px; font-size: 24px; text-transform: uppercase;">
+                        OVERWATCH GEOINT - NATIONAL DOSSIER
+                    </h1>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:30px; font-size:12px; color:#a1a1aa;">
+                        <div><strong>GENERATED:</strong> ${new Date().toISOString()}</div>
+                        <div><strong>SECTOR FOCUS:</strong> ${sectorFocus}</div>
+                    </div>
+                    
+                    <h3 style="color:#fbbf24; margin-top:20px; font-size:16px; border-bottom:1px solid #333; padding-bottom:5px;">🚨 ACTIVE THREAT INTELLIGENCE</h3>
+                    <div style="background:#131316; padding:15px; border:1px solid #ef4444; border-left:4px solid #ef4444; font-size:11px; margin-bottom:25px; line-height: 1.6; word-wrap: break-word;">
+                        ${threatFeed}
+                    </div>
+
+                    <h3 style="color:#0ea5e9; margin-top:20px; font-size:16px; border-bottom:1px solid #333; padding-bottom:5px;">✈️ LIVE AEROSPACE TELEMETRY (${activeCount} DETECTED)</h3>
+                    ${aviationHtml}
+
+                    <h3 style="color:#10b981; margin-top:20px; font-size:16px; border-bottom:1px solid #333; padding-bottom:5px;">🏗️ STRATEGIC INFRASTRUCTURE PROFILE</h3>
+                    <div style="background:#18181b; padding:15px; border:1px solid #27272a; border-radius:6px; font-size:11px;">
+                        ${infraBody.replace(/style="/g, 'style="color:#e4e4e7;')}
+                    </div>
+                    
+                    <h3 style="color:#a1a1aa; margin-top:30px; font-size:16px; border-bottom:1px solid #333; padding-bottom:5px;">📋 LATEST OPERATIONAL LOGS</h3>
+                    <div style="background:#18181b; padding:15px; border:1px solid #27272a; font-size: 10px;">
                         ${document.getElementById('logs').innerHTML}
+                    </div>
+                    
+                    <div style="margin-top: 40px; text-align: center; color: #71717a; font-size: 10px; border-top: 1px solid #333; padding-top: 10px;">
+                        CLASSIFIED DOSSIER - GENERATED BY OVERWATCH GEOINT AUTOMATED INTELLIGENCE SYSTEM
                     </div>
                 `;
                 
                 const opt = {
-                    margin:       0.5,
-                    filename:     `Overwatch_Tactical_Brief_${new Date().getTime()}.pdf`,
+                    margin:       [0.5, 0.5, 0.5, 0.5],
+                    filename:     `Overwatch_${country.value}_Dossier_${new Date().getTime()}.pdf`,
                     image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, backgroundColor: '#09090b' },
-                    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+                    html2canvas:  { scale: 2, backgroundColor: '#09090b', useCORS: true },
+                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
                 };
                 
                 await html2pdf().set(opt).from(element).save();
-                logIntel("[DOSSIER] Tactical Brief successfully exported.", "success");
+                logIntel("[DOSSIER] National Strategic Dossier successfully exported.", "success");
             } catch(e) {
                 logIntel(`[DOSSIER] Export failed: ${e.message}`, "error");
             } finally {
