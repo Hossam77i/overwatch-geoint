@@ -192,8 +192,15 @@
                         <strong style="color:var(--danger); display:block; margin-bottom:4px; font-size:0.9em;">ERR 429:</strong>${data.error}
                     </div>`;
                 } else if(data.reply) {
-                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(20,184,166,0.08); border:1px solid var(--accent); padding:10px; border-radius:2px; max-width:90%; color:var(--text); line-height:1.5;">
-                        <strong style="color:var(--accent-hi); display:block; margin-bottom:4px; font-size:0.9em;">AI CONSTRUCT:</strong>${data.reply.replace(/\\n/g, '<br>')}
+                    // Basic Markdown parsing for bold and code
+                    let formattedReply = data.reply
+                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--accent-hi);">$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em style="color:var(--accent-hi);">$1</em>')
+                        .replace(/`(.*?)`/g, '<code style="background:rgba(0,0,0,0.4); padding:2px 4px; border-radius:3px; color:#ffcc00; font-family:monospace;">$1</code>')
+                        .replace(/\n/g, '<br>');
+                        
+                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(20,184,166,0.08); border:1px solid var(--accent); padding:12px; border-radius:4px; max-width:90%; color:var(--text); line-height:1.6; letter-spacing:0.02em; box-shadow:0 0 10px rgba(20,184,166,0.1) inset;">
+                        <strong style="color:var(--accent-hi); display:block; margin-bottom:6px; font-size:0.9em; border-bottom:1px solid rgba(20,184,166,0.3); padding-bottom:4px;">AI CONSTRUCT:</strong>${formattedReply}
                     </div>`;
                 } else {
                     history.innerHTML += `<div style="align-self:flex-start; color:var(--danger); font-size:0.9em;">[!] Signal lost.</div>`;
