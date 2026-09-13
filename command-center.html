@@ -467,10 +467,8 @@
                 
                 const mLat = (lamin + lamax) / 2;
                 const mLon = (lomin + lomax) / 2;
-                radarQueue.push({s: lamin, w: lomin, n: mLat, e: mLon, isBackground: !isPan});
-                radarQueue.push({s: lamin, w: mLon, n: mLat, e: lomax, isBackground: !isPan});
-                radarQueue.push({s: mLat, w: lomin, n: lamax, e: mLon, isBackground: !isPan});
-                radarQueue.push({s: mLat, w: mLon, n: lamax, e: lomax, isBackground: !isPan});
+                // Execute a single, highly-efficient wide-area sweep instead of 4 quadrants to prevent API rate limits
+                radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax, isBackground: !isPan});
             } else {
                 radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax, isBackground: !isPan});
             }
@@ -1140,8 +1138,15 @@
                 const startTime = performance.now();
                 const res = await fetch(TRIGGER_URL, { method: "POST", body: JSON.stringify(payload) });
                 if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error("HTTP " + res.status + " " + text.substring(0, 50));
+                    let errMsg = "HTTP " + res.status;
+                    try {
+                        const errData = await res.json();
+                        errMsg = errData.message || errData.error || errMsg;
+                    } catch(e) {
+                        const text = await res.text();
+                        errMsg += " " + text.substring(0, 40);
+                    }
+                    throw new Error(errMsg);
                 }
                 const data = await res.json();
                 const endTime = performance.now();

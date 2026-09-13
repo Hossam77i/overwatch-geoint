@@ -354,8 +354,8 @@ def handler(event, context):
     if scan_filter == 'radar':
         import urllib.request
         try:
-            # Convert degrees to nautical miles (approx), clamped to 150nm max to prevent ADSB.lol timeouts in dense sectors
-            dist_nm = max(10, min(150, max(width_deg, height_deg) * 60))
+            # Convert degrees to nautical miles (approx), clamped to 250nm max to prevent ADSB.lol timeouts in dense sectors
+            dist_nm = max(10, min(250, max(width_deg, height_deg) * 60))
             url = f"https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{int(dist_nm)}"
             
             req = urllib.request.Request(url, headers={'User-Agent': 'Overwatch-GeoINT-Serverless'})
