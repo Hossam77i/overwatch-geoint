@@ -7,7 +7,11 @@ def deg2num(lat_deg, lon_deg, zoom):
     ytile = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
     return (xtile, ytile)
 
-INFRA_COUNTRIES = {'EGYPT': 'EG', 'IRAN': 'IR', 'RUSSIA': 'RU', 'NORTH_KOREA': 'KP', 'SAUDI_ARABIA': 'SA'}
+INFRA_COUNTRIES = {
+    'EGYPT': 'EG', 'IRAN': 'IR', 'RUSSIA': 'RU', 'NORTH_KOREA': 'KP', 'SAUDI_ARABIA': 'SA',
+    'CHINA': 'CN', 'USA': 'US', 'ISRAEL': 'IL', 'UK': 'GB', 'FRANCE': 'FR',
+    'GERMANY': 'DE', 'INDIA': 'IN', 'PAKISTAN': 'PK', 'SYRIA': 'SY', 'UKRAINE': 'UA'
+}
 OVERPASS_MIRRORS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
 INFRA_UA = {"User-Agent": "Overwatch-GEOINT/1.0 (contact: overwatch demo; cache 24h)"}
 
@@ -289,10 +293,10 @@ def handler(event, context):
             if body.get('action') == 'refresh_infra':
                 countries = [(body.get('country') or 'EGYPT').upper()]
             elif body.get('action') == 'refresh_all_infra':
-                # small countries first so a slow giant (RU) can never starve the rest
-                countries = ['SAUDI_ARABIA', 'NORTH_KOREA', 'IRAN', 'EGYPT', 'RUSSIA']
-            else:  # daily EventBridge backup: rotate one country/day (fits 60s Lambda)
-                countries = [['EGYPT', 'IRAN', 'RUSSIA', 'NORTH_KOREA', 'SAUDI_ARABIA'][int(time.time() // 86400) % 5]]
+                countries = list(INFRA_COUNTRIES.keys())
+            else:  # EventBridge backup: rotate one country/6 hours 
+                clist = list(INFRA_COUNTRIES.keys())
+                countries = [clist[int(time.time() // 21600) % len(clist)]]
             done, errors = {}, {}
             for c in countries:
                 try:

@@ -104,26 +104,8 @@
         /* Calm static texture only — no animation, no flicker */
         .grid-overlay { display: none; }
         .scanline { display: none; }
-    </style>
-</head>
-<body>
-    <div class="grid-overlay"></div>    <!-- Guest/Admin Auth Overlay -->
-    <div id="authOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:999999; display:flex; justify-content:center; align-items:center; flex-direction:column; font-family:ui-monospace, monospace;">
-        <div style="background:#121214; border:1px solid var(--accent); padding:40px; border-radius:12px; text-align:center; max-width:400px; box-shadow:0 0 40px rgba(20,184,166,0.2);">
-            <h2 style="color:var(--accent); margin-top:0; letter-spacing:0.1em; text-transform:uppercase;">Overwatch Geoint</h2>
-            <p style="color:#a1a1aa; font-size:0.9em; margin-bottom:30px;">Select authentication mode to proceed into the Global OSINT Engine.</p>
-            
-            <button onclick="loginGuest()" style="width:100%; background:transparent; border:1px solid #444; color:#fff; padding:12px; border-radius:6px; margin-bottom:15px; cursor:pointer; font-family:inherit; transition:all 0.2s;" onmouseover="this.style.borderColor='#888'" onmouseout="this.style.borderColor='#444'">
-                Continue as Guest (Read-Only)
-            </button>
-            
-            <div style="display:flex; gap:10px;">
-                <input type="password" id="adminKeyInput" placeholder="Admin Passkey" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid #444; border-radius:6px; color:#fff; padding:10px; font-family:inherit; outline:none;" onkeypress="if(event.key==='Enter') loginAdmin()">
-                <button onclick="loginAdmin()" style="background:var(--accent); color:#000; border:none; padding:10px 20px; border-radius:6px; font-weight:bold; cursor:pointer;">AUTH</button>
-            </div>
-            <div id="authError" style="color:var(--danger); font-size:0.8em; margin-top:10px; display:none;">Invalid credentials.</div>
-        </div>
-    </div>
+    <!-- Scanline effect overlay -->
+    <div class="scanline"></div>
 
     <!-- AI Chatbot UI -->
     <div id="aiChatWindow" class="chat-expanded" style="position:fixed; bottom:25px; right:85px; width:400px; background:rgba(18, 18, 22, 0.95); border:1px solid rgba(20, 184, 166, 0.5); border-radius:12px; z-index:10000; display:flex; flex-direction:column; box-shadow:0 16px 40px rgba(0,0,0,0.8), 0 0 20px rgba(20,184,166,0.15); backdrop-filter:blur(12px); font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; overflow:hidden; transition:all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);">
@@ -171,22 +153,6 @@
     <script>
         const CHAT_API = "https://vlxzpmaq7e.execute-api.us-east-1.amazonaws.com/chat";
         let sessionId = "session-" + Math.random().toString(36).substr(2, 9);
-        let isAdmin = false;
-        
-        function loginGuest() {
-            isAdmin = false;
-            document.getElementById('authOverlay').style.display = 'none';
-        }
-        
-        function loginAdmin() {
-            const val = document.getElementById('adminKeyInput').value;
-            if(val === 'admin-secret-key-12345') { // Basic client-side check matching the SSM param
-                isAdmin = true;
-                document.getElementById('authOverlay').style.display = 'none';
-            } else {
-                document.getElementById('authError').style.display = 'block';
-            }
-        }
         
         function toggleChat() {
             const win = document.getElementById('aiChatWindow');
@@ -295,12 +261,22 @@
         <h1>🛰️ GLOBAL OSINT ENGINE</h1>
         <div id="controls">
             <select id="countrySelect" onchange="onCountrySelect()">
-                <option value="GLOBAL">🌍 Global View</option>
+                <option value="GLOBAL">🌐 Global View</option>
                 <option value="EGYPT">🇪🇬 Egypt</option>
-                <option value="IRAN">🇮🇷 Iran / Gulf</option>
+                <option value="IRAN">🇮🇷 Iran (Gulf)</option>
                 <option value="RUSSIA">🇷🇺 Russia</option>
                 <option value="NORTH_KOREA">🇰🇵 North Korea</option>
                 <option value="SAUDI_ARABIA">🇸🇦 Saudi Arabia</option>
+                <option value="CHINA">🇨🇳 China</option>
+                <option value="USA">🇺🇸 United States</option>
+                <option value="ISRAEL">🇮🇱 Israel</option>
+                <option value="UK">🇬🇧 United Kingdom</option>
+                <option value="FRANCE">🇫🇷 France</option>
+                <option value="GERMANY">🇩🇪 Germany</option>
+                <option value="INDIA">🇮🇳 India</option>
+                <option value="PAKISTAN">🇵🇰 Pakistan</option>
+                <option value="SYRIA">🇸🇾 Syria</option>
+                <option value="UKRAINE">🇺🇦 Ukraine</option>
             </select>
 
             <div class="search-wrap"><input type="text" id="locationSearch" placeholder="Target Coordinate/City" autocomplete="off" /><div id="suggestBox"></div></div>
@@ -489,7 +465,17 @@
                 assets: [
                     { t: "Energy", n: "Ras Tanura Refinery", d: "550kbpd + export terminal", s: "Operational", c: "ib-op", lat: 26.64, lon: 50.16, q: "Ras Tanura", k: "energy" },
                     { t: "Military", n: "King Salman Air Base", d: "Air defense · Riyadh", s: "Operational", c: "ib-op", lat: 24.71, lon: 46.72, q: "King Salman Air Base", k: "macro" }
-                ] }
+                ] },
+            CHINA: { flag: "🇨🇳", name: "China", center: [35.8616, 104.1953], zoom: 4, summary: "Strategic expansion: Hainan naval bases + massive port networks.", assets: [] },
+            USA: { flag: "🇺🇸", name: "United States", center: [37.0902, -95.7129], zoom: 4, summary: "Global reach: Norfolk fleet + massive aviation hubs.", assets: [] },
+            ISRAEL: { flag: "🇮🇱", name: "Israel", center: [31.0460, 34.8516], zoom: 7, summary: "High-density defense: Tel Nof + Haifa port.", assets: [] },
+            UK: { flag: "🇬🇧", name: "United Kingdom", center: [55.3780, -3.4359], zoom: 5, summary: "North Atlantic anchor: Faslane sub base + Heathrow.", assets: [] },
+            FRANCE: { flag: "🇫🇷", name: "France", center: [46.2276, 2.2137], zoom: 5, summary: "Nuclear power + Mediterranean fleet (Toulon).", assets: [] },
+            GERMANY: { flag: "🇩🇪", name: "Germany", center: [51.1656, 10.4515], zoom: 5, summary: "European logistics hub: Ramstein Air Base.", assets: [] },
+            INDIA: { flag: "🇮🇳", name: "India", center: [20.5936, 78.9628], zoom: 4, summary: "Indian Ocean watch: Mumbai port + Eastern fleet.", assets: [] },
+            PAKISTAN: { flag: "🇵🇰", name: "Pakistan", center: [30.3753, 69.3451], zoom: 5, summary: "Strategic chokepoint: Gwadar Port.", assets: [] },
+            SYRIA: { flag: "🇸🇾", name: "Syria", center: [34.8020, 38.9968], zoom: 6, summary: "Conflict zone: Tartus naval facility + Khmeimim.", assets: [] },
+            UKRAINE: { flag: "🇺🇦", name: "Ukraine", center: [48.3794, 31.1655], zoom: 5, summary: "Active theater: Odesa port + energy grid.", assets: [] }
         };
 
         const INFRA_CATS = ['All', 'Aviation', 'Energy', 'Maritime', 'Military'];
@@ -677,10 +663,6 @@
         }
 
         async function executeMacroOSINT() {
-            if (!isAdmin) {
-                alert("Guest Mode: Read-Only. Admin authentication required to trigger live OSINT scans.");
-                return;
-            }
             const query = document.getElementById('locationSearch').value.trim();
             const btn = document.getElementById("macroBtn");
             if (!query) return;
@@ -847,10 +829,6 @@
         }
 
         async function executeScan() {
-            if (!isAdmin) {
-                alert("Guest Mode: Read-Only. Admin authentication required to trigger live OSINT scans.");
-                return;
-            }
             const btn = document.getElementById("scanBtn");
             const filter = document.getElementById("scanFilter").value;
             let query = document.getElementById('locationSearch').value.trim();
