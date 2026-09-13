@@ -111,27 +111,48 @@
     <div class="scanline"></div>
 
     <!-- AI Chatbot UI -->
-    <div id="aiChatWindow" class="chat-expanded" style="position:fixed; bottom:30px; right:80px; width:380px; background:rgba(9,9,11,0.95); border:1px solid var(--accent); border-radius:8px; z-index:10000; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,255,204,0.15); backdrop-filter:blur(8px); font-family:ui-monospace, SFMono-Regular, Consolas, monospace; overflow:hidden; transition:height 0.3s ease, width 0.3s ease;">
-        <div style="background:rgba(20,184,166,0.15); color:var(--accent-hi); padding:14px; font-weight:bold; display:flex; justify-content:space-between; align-items:center; cursor:pointer; border-bottom:1px solid var(--accent); font-size:0.85em; letter-spacing:0.05em; text-transform:uppercase;" onclick="toggleChat()">
-            <div style="display:flex; align-items:center;">
-                <span class="live-dot" id="chatDot" style="margin-right:8px; background:var(--success);"></span>
-                <span id="chatTitle">OSINT-AI UPLINK</span>
+    <div id="aiChatWindow" class="chat-expanded" style="position:fixed; bottom:25px; right:85px; width:400px; background:rgba(18, 18, 22, 0.95); border:1px solid rgba(20, 184, 166, 0.5); border-radius:12px; z-index:10000; display:flex; flex-direction:column; box-shadow:0 16px 40px rgba(0,0,0,0.8), 0 0 20px rgba(20,184,166,0.15); backdrop-filter:blur(12px); font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; overflow:hidden; transition:all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);">
+        <!-- Header -->
+        <div style="background:linear-gradient(90deg, rgba(20,184,166,0.15), rgba(20,184,166,0.05)); color:var(--accent-hi); padding:16px 20px; font-weight:600; display:flex; justify-content:space-between; align-items:center; cursor:pointer; border-bottom:1px solid rgba(20,184,166,0.2); font-size:0.9em; letter-spacing:0.04em;" onclick="toggleChat()">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="live-dot" id="chatDot" style="width:8px; height:8px; border-radius:50%; background:var(--success); box-shadow:0 0 8px var(--success);"></span>
+                <span id="chatTitle" style="font-family:ui-monospace, SFMono-Regular, monospace; text-transform:uppercase;">Overwatch AI</span>
             </div>
-            <span id="chatToggleBtn" style="font-size:1.2em; line-height:1;">−</span>
+            <span id="chatToggleBtn" style="font-size:1.5em; line-height:1; color:#888; transition:color 0.2s;">−</span>
         </div>
-        <div id="chatBody" style="display:flex; flex-direction:column; height:370px;">
-            <div id="chatHistory" style="flex:1; overflow-y:auto; padding:15px; font-size:0.82em; color:var(--text); display:flex; flex-direction:column; gap:12px;">
-                <div style="align-self:flex-start; background:rgba(20,184,166,0.08); border:1px solid var(--accent); padding:10px; border-radius:4px; max-width:90%; color:var(--text); line-height:1.5; box-shadow:0 0 10px rgba(20,184,166,0.1) inset;">
-                    <strong style="color:var(--accent-hi); display:block; margin-bottom:4px; font-size:0.9em;">SYSTEM:</strong>
-                    Direct uplink established to Overwatch architecture framework. Awaiting operator query...
+        
+        <!-- Chat Body -->
+        <div id="chatBody" style="display:flex; flex-direction:column; height:420px; transition:opacity 0.3s ease;">
+            <!-- History -->
+            <div id="chatHistory" style="flex:1; overflow-y:auto; padding:20px; font-size:0.92em; color:#e0e0e0; display:flex; flex-direction:column; gap:16px;">
+                <div style="align-self:flex-start; background:rgba(20,184,166,0.1); border-left:3px solid var(--accent); padding:12px 16px; border-radius:4px 12px 12px 12px; max-width:85%; line-height:1.6;">
+                    <div style="font-family:ui-monospace, monospace; font-size:0.8em; color:var(--accent-hi); margin-bottom:6px; opacity:0.8;">SYSTEM</div>
+                    Direct uplink established to Overwatch architecture framework. How can I assist you today?
                 </div>
             </div>
-            <div style="display:flex; border-top:1px solid var(--border); background:rgba(0,0,0,0.6);">
-                <input type="text" id="chatInput" placeholder="> Type query..." style="flex:1; border:none; border-radius:0; background:transparent; padding:12px 15px; color:var(--text); font-family:inherit; font-size:0.85em; outline:none;" onkeypress="if(event.key==='Enter') sendChat()">
-                <button onclick="sendChat()" style="background:transparent; color:var(--accent); border:none; border-left:1px solid var(--border); padding:0 18px; font-weight:bold; cursor:pointer; transition:background 0.2s;">[ SEND ]</button>
+            
+            <!-- Input Area -->
+            <div style="display:flex; align-items:center; padding:12px 16px; background:rgba(0,0,0,0.3); border-top:1px solid rgba(255,255,255,0.08);">
+                <input type="text" id="chatInput" placeholder="Message Overwatch AI..." style="flex:1; border:1px solid rgba(255,255,255,0.1); border-radius:20px; background:rgba(255,255,255,0.05); padding:10px 16px; color:#fff; font-family:inherit; font-size:0.9em; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='rgba(20,184,166,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'" onkeypress="if(event.key==='Enter') sendChat()">
+                <button onclick="sendChat()" style="background:var(--accent); color:#000; border:none; border-radius:50%; width:36px; height:36px; margin-left:10px; display:flex; justify-content:center; align-items:center; cursor:pointer; box-shadow:0 4px 10px rgba(20,184,166,0.3); transition:transform 0.1s, background 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onmouseover="this.style.background='#1cdbc5'" onmouseout="this.style.background='var(--accent)'">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
             </div>
         </div>
     </div>
+
+    <style>
+        /* Custom scrollbar for chat history */
+        #chatHistory::-webkit-scrollbar { width: 6px; }
+        #chatHistory::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        #chatHistory::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+        #chatHistory::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+        .ai-message p { margin: 0 0 8px 0; }
+        .ai-message p:last-child { margin: 0; }
+        .ai-message ul { margin: 8px 0; padding-left: 20px; }
+        .ai-message li { margin-bottom: 4px; }
+    </style>
+
     <script>
         const CHAT_API = "https://vlxzpmaq7e.execute-api.us-east-1.amazonaws.com/chat";
         let sessionId = "session-" + Math.random().toString(36).substr(2, 9);
@@ -147,22 +168,27 @@
                 // Collapse
                 win.classList.remove('chat-expanded');
                 body.style.display = 'none';
-                win.style.width = '240px';
+                win.style.width = '260px';
+                win.style.borderRadius = '24px';
                 btn.innerHTML = '＋';
-                title.innerText = 'AI UPLINK OFFLINE';
-                dot.style.background = 'var(--muted)';
+                title.innerText = 'AI UPLINK (STANDBY)';
+                dot.style.background = '#666';
+                dot.style.boxShadow = 'none';
                 dot.style.animation = 'none';
             } else {
                 // Expand
                 win.classList.add('chat-expanded');
                 body.style.display = 'flex';
-                win.style.width = '380px';
+                win.style.width = '400px';
+                win.style.borderRadius = '12px';
                 btn.innerHTML = '−';
-                title.innerText = 'OSINT-AI UPLINK';
+                title.innerText = 'Overwatch AI';
                 dot.style.background = 'var(--success)';
+                dot.style.boxShadow = '0 0 8px var(--success)';
                 dot.style.animation = 'softpulse 2.4s ease-in-out infinite';
             }
         }
+
         async function sendChat() {
             const input = document.getElementById('chatInput');
             const history = document.getElementById('chatHistory');
@@ -170,13 +196,17 @@
             if(!msg) return;
             
             input.value = '';
-            history.innerHTML += `<div style="align-self:flex-end; background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:2px; max-width:90%; color:var(--text-2);">
-                <strong style="color:#a1a1aa; display:block; margin-bottom:4px; font-size:0.9em;">OPERATOR:</strong>${msg}
+            
+            // User bubble
+            history.innerHTML += `<div style="align-self:flex-end; background:rgba(255,255,255,0.1); padding:12px 16px; border-radius:12px 12px 4px 12px; max-width:85%; color:#fff; line-height:1.5;">
+                ${msg}
             </div>`;
             history.scrollTop = history.scrollHeight;
             
             const loadingId = "load-" + Date.now();
-            history.innerHTML += `<div id="${loadingId}" style="align-self:flex-start; color:var(--accent); font-style:italic; font-size:0.8em; margin-top:4px;">[📡 decrypting signal...]</div>`;
+            history.innerHTML += `<div id="${loadingId}" style="align-self:flex-start; color:var(--accent); font-family:ui-monospace, monospace; font-size:0.8em; margin-top:4px; opacity:0.8;">
+                <span class="live-dot" style="width:6px; height:6px; margin-right:6px; animation: softpulse 1s infinite;"></span>Processing...
+            </div>`;
             history.scrollTop = history.scrollHeight;
 
             try {
@@ -187,27 +217,30 @@
                 });
                 const data = await res.json();
                 document.getElementById(loadingId).remove();
+                
                 if(res.status === 429) {
-                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(239,68,68,0.08); border:1px solid var(--danger); padding:10px; border-radius:2px; max-width:90%; color:var(--danger);">
-                        <strong style="color:var(--danger); display:block; margin-bottom:4px; font-size:0.9em;">ERR 429:</strong>${data.error}
+                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(239,68,68,0.1); border-left:3px solid var(--danger); padding:12px 16px; border-radius:4px 12px 12px 12px; max-width:85%; color:#fff; line-height:1.5;">
+                        <div style="font-family:ui-monospace, monospace; font-size:0.8em; color:var(--danger); margin-bottom:6px; opacity:0.9;">SYS_ERR 429</div>
+                        ${data.error}
                     </div>`;
                 } else if(data.reply) {
-                    // Basic Markdown parsing for bold and code
+                    // Better Markdown parsing
                     let formattedReply = data.reply
-                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--accent-hi);">$1</strong>')
-                        .replace(/\*(.*?)\*/g, '<em style="color:var(--accent-hi);">$1</em>')
-                        .replace(/`(.*?)`/g, '<code style="background:rgba(0,0,0,0.4); padding:2px 4px; border-radius:3px; color:#ffcc00; font-family:monospace;">$1</code>')
+                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#fff;">$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em style="color:#e0e0e0;">$1</em>')
+                        .replace(/`(.*?)`/g, '<code style="background:rgba(0,0,0,0.5); padding:2px 5px; border-radius:4px; color:#14b8a6; font-family:monospace; font-size:0.9em;">$1</code>')
+                        .replace(/\n\n/g, '</p><p>')
                         .replace(/\n/g, '<br>');
                         
-                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(20,184,166,0.08); border:1px solid var(--accent); padding:12px; border-radius:4px; max-width:90%; color:var(--text); line-height:1.6; letter-spacing:0.02em; box-shadow:0 0 10px rgba(20,184,166,0.1) inset;">
-                        <strong style="color:var(--accent-hi); display:block; margin-bottom:6px; font-size:0.9em; border-bottom:1px solid rgba(20,184,166,0.3); padding-bottom:4px;">AI CONSTRUCT:</strong>${formattedReply}
+                    history.innerHTML += `<div class="ai-message" style="align-self:flex-start; background:rgba(20,184,166,0.1); border-left:3px solid var(--accent); padding:12px 16px; border-radius:4px 12px 12px 12px; max-width:85%; color:#e0e0e0; line-height:1.6; font-size:0.95em;">
+                        <p>${formattedReply}</p>
                     </div>`;
                 } else {
-                    history.innerHTML += `<div style="align-self:flex-start; color:var(--danger); font-size:0.9em;">[!] Signal lost.</div>`;
+                    history.innerHTML += `<div style="align-self:flex-start; color:var(--danger); font-size:0.85em; font-family:ui-monospace, monospace;">[!] Network error.</div>`;
                 }
             } catch (e) {
                 document.getElementById(loadingId).remove();
-                history.innerHTML += `<div style="align-self:flex-start; color:var(--danger); font-size:0.9em;">[!] Neural link offline.</div>`;
+                history.innerHTML += `<div style="align-self:flex-start; color:var(--danger); font-size:0.85em; font-family:ui-monospace, monospace;">[!] Connection lost.</div>`;
             }
             history.scrollTop = history.scrollHeight;
         }
