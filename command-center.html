@@ -345,9 +345,9 @@
             while (radarQueue.length > 0) {
                 const req = radarQueue.shift();
                 
-                // Add a strict 4-second timeout so the queue NEVER hangs if OpenSky drops the TCP connection
+                // Add a strict 10-second timeout so the queue NEVER hangs
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 4000);
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
                 
                 try {
                     // Strictly clamp coordinates to valid global bounds (-90 to 90, -180 to 180)
