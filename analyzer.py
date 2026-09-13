@@ -24,7 +24,7 @@ def verify_ship_with_gemini(crop_img, api_key):
     _, buffer = cv2.imencode('.jpg', crop_img)
     img_b64 = base64.b64encode(buffer).decode('utf-8')
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
     payload = {
         "contents": [{
             "parts": [
