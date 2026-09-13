@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overwatch | Global GEOINT</title>
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body { background-color: #050505; color: #00ffcc; font-family: 'Courier New', Courier, monospace; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { padding: 20px; border-bottom: 1px solid #00ffcc; background: #0a0a0a; display: flex; justify-content: space-between; align-items: center; }
+        h1 { margin: 0; font-size: 1.5em; }
+        
+        #controls { display: flex; gap: 15px; align-items: center; }
+        input, select { background: #111; color: #00ffcc; border: 1px solid #333; padding: 10px; font-family: inherit; font-size: 1em; width: 250px; }
+        .btn { background-color: transparent; color: #00ffcc; border: 1px solid #00ffcc; padding: 10px 20px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn:hover { background-color: #00ffcc; color: #000; }
+        .btn:disabled { color: #555; border-color: #555; cursor: not-allowed; }
+
+        #main { display: flex; flex: 1; overflow: hidden; }
+        
+        #sidebar { width: 350px; padding: 20px; background: #111; overflow-y: auto; border-right: 1px solid #333; }
+        #map { flex: 1; background: #000; }
+        
+        .log-entry { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #333; }
+        .log-entry.success { color: #0f0; }
+        .log-entry.error { color: #f00; }
+        
+        /* Custom image overlay style to blend it slightly */
+        .leaflet-image-layer { opacity: 0.85; mix-blend-mode: screen; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🛰️ PROJECT OVERWATCH: Global Command</h1>
+        <div id="controls">
+            <input type="text" id="locationSearch" placeholder="Search Place (e.g., Dubai, Panama)" />
+            <select id="scanFilter">
+                <option value="maritime">🚢 Maritime (Ships)</option>
+                <option value="energy">🛢️ Energy (Oil Tanks)</option>
+                <option value="aviation">✈️ Aviation (Runways)</option>
+            </select>
+            <button class="btn" id="scanBtn" onclick="executeScan()">EXECUTE SCAN</button>
+        </div>
+    </header>
+
+    <div id="main">
+        <div id="sidebar">
+            <h3 style="margin-top: 0;">Intel Feed</h3>
+            <div id="logs"></div>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <script>
+        // Initialize Map (Dark Theme)
+        const map = L.map('map').setView([30.5852, 32.3503], 10);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        }).addTo(map);
+
+        const TRIGGER_URL = "https://yyp1jlzcjf.execute-api.us-east-1.amazonaws.com/trigger-overwatch";
+        
+        let currentTarget = { lat: 30.5852, lon: 32.3503, name: "Suez Canal, Egypt" };
+        let currentOverlay = null;
+
+        function logIntel(msg, type="info") {
+            const div = document.createElement("div");
+            div.className = `log-entry ${type}`;
+            div.innerHTML = `> ${msg}`;
+            document.getElementById("logs").prepend(div);
+        }
+
+        // Search Box Logic (Geocoding)
+        document.getElementById('locationSearch').addEventListener('keypress', async function (e) {
+            if (e.key === 'Enter') {
+                const query = this.value;
+                logIntel(`Geocoding coordinates for: ${query}...`);
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+                    const data = await res.json();
+                    if (data.length > 0) {
+                        currentTarget.lat = parseFloat(data[0].lat);
+                        currentTarget.lon = parseFloat(data[0].lon);
+                        currentTarget.name = data[0].display_name;
+                        
+                        map.flyTo([currentTarget.lat, currentTarget.lon], 12);
+                        logIntel(`Target Locked: ${currentTarget.lat.toFixed(4)}, ${currentTarget.lon.toFixed(4)}`, "success");
+                    } else {
+                        logIntel(`Location not found.`, "error");
+                    }
+                } catch(err) {
+                    logIntel(`Geocoding error: ${err.message}`, "error");
+                }
+            }
+        });
+
+        // Scan Logic
+        async function executeScan() {
+            const btn = document.getElementById("scanBtn");
+            const filter = document.getElementById("scanFilter").value;
+            
+            btn.disabled = true;
+            logIntel(`[${filter.toUpperCase()}] Requesting orbital alignment over ${currentTarget.name}...`);
+
+            try {
+                // Remove previous overlay
+                if (currentOverlay) {
+                    map.removeLayer(currentOverlay);
+                }
+
+                const payload = {
+                    lat: currentTarget.lat,
+                    lon: currentTarget.lon,
+                    filter: filter
+                };
+
+                const res = await fetch(TRIGGER_URL, {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+                
+                logIntel(`SCAN COMPLETE. Anomalies Detected: ${data.detections}`, "success");
+
+                // Overlay the actual satellite image onto the map!
+                // STAC bounds: [west, south, east, north]
+                const bounds = [[data.bbox[1], data.bbox[0]], [data.bbox[3], data.bbox[2]]];
+                currentOverlay = L.imageOverlay(data.image_url, bounds).addTo(map);
+                map.fitBounds(bounds);
+
+            } catch (err) {
+                logIntel(`Scan Failed: ${err.message}`, "error");
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -30,7 +30,7 @@ resource "aws_iam_policy" "dynamodb_write" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action   = ["dynamodb:PutItem"]
+      Action   = ["dynamodb:PutItem", "dynamodb:Scan"]
       Effect   = "Allow"
       Resource = "arn:aws:dynamodb:us-east-1:538675137281:table/cloud-resume-threats"
     }]

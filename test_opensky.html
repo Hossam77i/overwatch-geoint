@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+fetch('https://opensky-network.org/api/states/all?lamin=22&lomin=25&lamax=31&lomax=35')
+  .then(r => console.log(r.status))
+  .catch(e => console.error(e));
+</script>
+</body>
+</html>
