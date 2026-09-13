@@ -914,20 +914,31 @@
                 
                 let overpassQuery = "";
                 if (areaSize > 15) {
-                    let radialQueries = nodeQueries.replace(/\]/g, `](around:40000,${currentTarget.lat},${currentTarget.lon})`);
-                    overpassQuery = `[out:json][timeout:15];(${radialQueries});out center;>;out skel qt;`;
+                    // Increased search radius from 40km to 300km to uncover vastly more strategic nodes 
+                    // without triggering Overpass API planetary memory limits.
+                    let radialQueries = nodeQueries.replace(/\]/g, `](around:300000,${currentTarget.lat},${currentTarget.lon})`);
+                    overpassQuery = `[out:json][timeout:25];(${radialQueries});out center;>;out skel qt;`;
                 } else {
                     const bboxStr = `${s},${w},${n},${e}`;
                     let bboxQueries = nodeQueries.replace(/\]/g, `]`);
-                    overpassQuery = `[out:json][timeout:15][bbox:${bboxStr}];(${bboxQueries});out center;>;out skel qt;`;
+                    overpassQuery = `[out:json][timeout:25][bbox:${bboxStr}];(${bboxQueries});out center;>;out skel qt;`;
                 }
 
                 try {
-                    // Try the Live API first
-                    const osmRes = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: overpassQuery });
-                    const text = await osmRes.text();
+                    // Load balance between multiple Overpass mirrors to prevent rate limit bans
+                    let osmRes, text;
+                    try {
+                        osmRes = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: overpassQuery });
+                        text = await osmRes.text();
+                        if (!osmRes.ok || text.includes("error")) throw new Error("Primary Mirror Overloaded");
+                    } catch (primaryErr) {
+                        logIntel("[MACRO] Primary Overpass mirror rate-limited. Routing to LZ4 backup...", "warn");
+                        osmRes = await fetch("https://lz4.overpass-api.de/api/interpreter", { method: "POST", body: overpassQuery });
+                        text = await osmRes.text();
+                    }
+                    
                     let osmData = null;
-                    try { osmData = JSON.parse(text); } catch (parseErr) { throw new Error("API Rate Limit"); }
+                    try { osmData = JSON.parse(text); } catch (parseErr) { throw new Error("API Rate Limit / Invalid JSON"); }
                     if (!osmRes.ok || !osmData.elements || osmData.elements.length === 0) throw new Error("API Rate Limit");
                     let counts = { aviation: 0, energy: 0, military: 0, roads: 0 };
                     
