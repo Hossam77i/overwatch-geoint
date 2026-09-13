@@ -337,18 +337,43 @@ def handler(event, context):
     south = lat - height_deg / 2
     north = lat + height_deg / 2
 
-    # If the frontend is requesting Live Radar (CORS Proxy bypass)
+    # If the frontend is requesting Live Radar (CORS Proxy bypass & IP Ban evasion)
     if scan_filter == 'radar':
         import urllib.request
         try:
-            url = f"https://opensky-network.org/api/states/all?lamin={south}&lomin={west}&lamax={north}&lomax={east}"
+            # Convert degrees to nautical miles for the ADSB.lol distance API
+            dist_nm = max(10, min(250, max(width_deg, height_deg) * 60))
+            url = f"https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{int(dist_nm)}"
+            
             req = urllib.request.Request(url, headers={'User-Agent': 'Overwatch-GeoINT-Serverless'})
-            with urllib.request.urlopen(req, timeout=4.0) as res:
+            with urllib.request.urlopen(req, timeout=5.0) as res:
                 data = json.loads(res.read().decode())
+                
+                opensky_states = []
+                for ac in data.get('ac', []):
+                    lon_val = ac.get('lon')
+                    lat_val = ac.get('lat')
+                    if lon_val is not None and lat_val is not None:
+                        vel_ms = ac.get('gs', 0) * 0.514444 # knots to m/s
+                        opensky_states.append([
+                            ac.get('hex', 'unknown'),
+                            ac.get('flight', '').strip(),
+                            "Unknown", None, None,
+                            lon_val, lat_val,
+                            ac.get('alt_baro'),
+                            False,
+                            vel_ms,
+                            ac.get('track', 0),
+                            0, None, None, None, False, 0
+                        ])
+                        
                 return {
                     "statusCode": 200,
                     "headers": {"Access-Control-Allow-Origin": "*"},
-                    "body": json.dumps({"status": "success", "radar_data": data})
+                    "body": json.dumps({
+                        "status": "success", 
+                        "radar_data": {"states": opensky_states}
+                    })
                 }
         except Exception as e:
             return {
