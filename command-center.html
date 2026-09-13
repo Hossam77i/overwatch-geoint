@@ -1416,15 +1416,25 @@
             let photoHtml = `<div style="height:150px; background:#000; border:1px solid #333; display:flex; align-items:center; justify-content:center; color:#555; margin-bottom:15px; border-radius:6px; font-family:monospace; font-size:12px; text-align:center; padding: 0 20px;">NO VISUAL RECORD FOUND IN OPEN-SOURCE DATABASES</div>`;
             
             try {
-                if (name && name !== type) {
-                    // Fetch photo from Wikipedia API based on the infrastructure name
-                    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`);
-                    const data = await res.json();
-                    if (data && data.thumbnail) {
-                        photoHtml = `<div style="margin-bottom:15px; border-radius:6px; overflow:hidden; border:1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-                            <img src="${data.thumbnail.source}" style="width:100%; display:block;" />
+                // Perform a geospatial scan on the Wikipedia database using precise coordinates
+                // This circumvents language barriers (e.g., Arabic names on English Wiki) by searching physical proximity
+                const geoUrl = \`https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=\${lat}|\${lon}&gsradius=5000&format=json&origin=*\`;
+                const geoRes = await fetch(geoUrl);
+                const geoData = await geoRes.json();
+                
+                if (geoData.query && geoData.query.geosearch && geoData.query.geosearch.length > 0) {
+                    const pageId = geoData.query.geosearch[0].pageid;
+                    
+                    // Fetch the highest resolution image for the closest matching infrastructure article
+                    const imgUrl = \`https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&pageids=\${pageId}&pithumbsize=500&format=json&origin=*\`;
+                    const imgRes = await fetch(imgUrl);
+                    const imgData = await imgRes.json();
+                    
+                    if (imgData.query && imgData.query.pages && imgData.query.pages[pageId] && imgData.query.pages[pageId].thumbnail) {
+                        photoHtml = \`<div style="margin-bottom:15px; border-radius:6px; overflow:hidden; border:1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                            <img src="\${imgData.query.pages[pageId].thumbnail.source}" style="width:100%; display:block;" />
                             <div style="background:#000; color:var(--text-2); font-size:9px; font-family:monospace; padding:4px 8px; text-align:right;">SATELLITE / GROUND INTELLIGENCE MATCH</div>
-                        </div>`;
+                        </div>\`;
                     }
                 }
             } catch(e) {}
