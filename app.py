@@ -338,13 +338,11 @@ def handler(event, context):
         lat = float(body.get('lat', 30.5852))
         lon = float(body.get('lon', 32.3503))
         scan_filter = body.get('filter', 'maritime')
-        
-        # Support user-drawn dynamic map frames for micro scan (fallback to 0.2deg)
-        width_deg = float(body.get('width_deg', 0.2))
-        height_deg = float(body.get('height_deg', 0.2))
-    except:
-        lat, lon, scan_filter = 30.5852, 32.3503, 'maritime'
-        width_deg, height_deg = 0.2, 0.2
+        width_deg = float(body.get('width_deg', 0.05))
+        height_deg = float(body.get('height_deg', 0.05))
+    except Exception as e:
+        lat, lon = 30.5852, 32.3503
+        width_deg, height_deg = 0.05, 0.05
 
     # Define a tactical bounding box (e.g. dynamic user frame or ~22km)
     west = lon - width_deg / 2
@@ -356,8 +354,8 @@ def handler(event, context):
     if scan_filter == 'radar':
         import urllib.request
         try:
-            # Convert degrees to nautical miles for the ADSB.lol distance API
-            dist_nm = max(10, min(250, max(width_deg, height_deg) * 60))
+            # Convert degrees to nautical miles (approx), clamped to 150nm max to prevent ADSB.lol timeouts in dense sectors
+            dist_nm = max(10, min(150, max(width_deg, height_deg) * 60))
             url = f"https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{int(dist_nm)}"
             
             req = urllib.request.Request(url, headers={'User-Agent': 'Overwatch-GeoINT-Serverless'})
