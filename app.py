@@ -326,6 +326,13 @@ def handler(event, context):
             response = table.scan(Limit=20)
             items = response.get('Items', [])
             items.sort(key=lambda x: int(x.get('timestamp', 0)), reverse=True)
+            
+            # DynamoDB returns Decimals, which crash json.dumps. Cast them to int/float.
+            for item in items:
+                for k, v in item.items():
+                    if hasattr(v, 'quantize'): # is decimal
+                        item[k] = int(v) if v % 1 == 0 else float(v)
+
             return {
                 "statusCode": 200,
                 "headers": {"Access-Control-Allow-Origin": "*"},
