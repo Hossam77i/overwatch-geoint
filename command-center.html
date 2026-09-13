@@ -1418,7 +1418,7 @@
             try {
                 // Perform a geospatial scan on the Wikipedia database using precise coordinates
                 // This circumvents language barriers (e.g., Arabic names on English Wiki) by searching physical proximity
-                const geoUrl = \`https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=\${lat}|\${lon}&gsradius=5000&format=json&origin=*\`;
+                const geoUrl = `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=5000&format=json&origin=*`;
                 const geoRes = await fetch(geoUrl);
                 const geoData = await geoRes.json();
                 
@@ -1426,15 +1426,15 @@
                     const pageId = geoData.query.geosearch[0].pageid;
                     
                     // Fetch the highest resolution image for the closest matching infrastructure article
-                    const imgUrl = \`https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&pageids=\${pageId}&pithumbsize=500&format=json&origin=*\`;
+                    const imgUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&pageids=${pageId}&pithumbsize=500&format=json&origin=*`;
                     const imgRes = await fetch(imgUrl);
                     const imgData = await imgRes.json();
                     
                     if (imgData.query && imgData.query.pages && imgData.query.pages[pageId] && imgData.query.pages[pageId].thumbnail) {
-                        photoHtml = \`<div style="margin-bottom:15px; border-radius:6px; overflow:hidden; border:1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-                            <img src="\${imgData.query.pages[pageId].thumbnail.source}" style="width:100%; display:block;" />
+                        photoHtml = `<div style="margin-bottom:15px; border-radius:6px; overflow:hidden; border:1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                            <img src="${imgData.query.pages[pageId].thumbnail.source}" style="width:100%; display:block;" />
                             <div style="background:#000; color:var(--text-2); font-size:9px; font-family:monospace; padding:4px 8px; text-align:right;">SATELLITE / GROUND INTELLIGENCE MATCH</div>
-                        </div>\`;
+                        </div>`;
                     }
                 }
             } catch(e) {}
