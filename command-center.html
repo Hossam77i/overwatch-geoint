@@ -1465,6 +1465,7 @@
                 <button onclick="document.getElementById('airplaneModal').style.display='none'" style="width:100%; margin-top:15px; background:var(--info); color:#000; border:none; padding:10px; cursor:pointer; font-weight:bold; border-radius:6px; font-family:monospace; letter-spacing:1px;">CLOSE TACTICAL PROFILE</button>
             `;
         }
+        let threatFeedVisible = true;
         function toggleThreatFeed() {
             threatFeedVisible = !threatFeedVisible;
             const ticker = document.getElementById('threat-ticker');
