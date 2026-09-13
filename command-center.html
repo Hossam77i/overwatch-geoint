@@ -179,27 +179,21 @@
                 <option value="PERU">🇵🇪 Peru</option>
             </select>
 
-            <div class="search-wrap"><input type="text" id="locationSearch" placeholder="Target Coordinate/City" autocomplete="off" /><div id="suggestBox"></div></div>
-            <div class="bottom-controls">
-                <button id="drawBtn" class="btn draw-btn" onclick="toggleDrawMode()">⛶ Draw Frame</button>
-                <div style="display:inline-block; border:1px solid #ffea00; border-radius:4px; overflow:hidden; vertical-align:middle;">
-                    <select id="radarFilter" style="background:#111; color:#ffea00; border:none; padding:8px; font-family:monospace; outline:none; cursor:pointer;" onchange="if(radarActive){fetchLiveRadar();}">
-                        <option value="air">✈️ Air (ADS-B)</option>
-                        <option value="sea">🚢 Sea (AIS)</option>
-                        <option value="rail">🚆 Rail (GPS)</option>
-                    </select>
-                    <button id="radarBtn" class="btn" style="background:var(--panel); color:var(--accent); border:none; border-left:1px solid #ffea00; border-radius:0;" onclick="toggleLiveRadar()">📡 LIVE RADAR</button>
-                </div>
-                
-                <span style="border-left:1px solid #333; margin:0 10px;"></span>
-                
-                <select id="scanFilter" style="background:#111; color:var(--accent); border:1px solid var(--border); border-radius:4px; padding:8px; font-family:monospace;">
+            <div class="search-wrap"><input type="text" id="locationSearch" placeholder="Target Coordinate/City" autocomplete="off" />
+                <div id="suggestBox"></div>
+            </div>
+            
+            <div style="display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--panel);">
+                <button id="drawBtn" class="btn" style="border:none; border-radius:0; border-right:1px solid var(--border); background:transparent; color:var(--text-2);" onclick="toggleDrawMode()">⛶ Draw Frame</button>
+                <button id="radarBtn" class="btn" style="border:none; border-radius:0; border-right:1px solid var(--border); background:transparent; color:var(--info);" onclick="toggleLiveRadar()">📡 Live Aviation</button>
+                <select id="scanFilter" style="border:none; border-radius:0; background:transparent; color:var(--accent); font-family:monospace; outline:none; border-right:1px solid var(--border);">
                     <option value="maritime">Micro: Maritime</option>
                     <option value="aviation">Micro: Aviation</option>
                     <option value="energy">Micro: Energy</option>
                 </select>
-                <button id="scanBtn" class="btn" onclick="executeScan()">⚡ SCAN</button>
+                <button id="scanBtn" class="btn" style="border:none; border-radius:0;" onclick="executeScan()">⚡ SCAN</button>
             </div>
+            
             <button class="btn btn-macro" id="macroBtn" onclick="executeMacroOSINT()">MACRO OSINT</button>
             <button class="btn btn-reset" onclick="resetView()">RESET</button>
         </div>
@@ -277,8 +271,8 @@
                 document.getElementById("map").style.cursor = "crosshair";
                 logIntel("Draw Mode ACTIVATED. Click and drag on the map to define the Tactical Frame.", "success");
             } else {
-                btn.style.background = "var(--panel)";
-                btn.style.color = "var(--accent)";
+                btn.style.background = "transparent";
+                btn.style.color = "var(--text-2)";
                 map.dragging.enable();
                 document.getElementById("map").style.cursor = "";
             }
@@ -329,8 +323,8 @@
                 fetchLiveRadar();
                 radarInterval = setInterval(fetchLiveRadar, 12000); // Poll every 12s to avoid rate limits
             } else {
-                btn.style.background = "var(--panel)";
-                btn.style.color = "var(--accent)";
+                btn.style.background = "transparent";
+                btn.style.color = "var(--info)";
                 clearInterval(radarInterval);
                 radarMarkers.forEach(m => map.removeLayer(m));
                 radarMarkers = [];
@@ -340,29 +334,18 @@
 
         async function fetchLiveRadar() {
             if (!radarActive) return;
-            const filter = document.getElementById("radarFilter").value;
             
-            if (filter === "sea") {
-                radarMarkers.forEach(m => map.removeLayer(m));
-                radarMarkers = [];
-                logIntel("[RADAR] 🚢 SEA (AIS) Access Denied. Commercial satellite AIS providers (Spire/MarineTraffic) require paid API keys. No free global feed exists.", "error");
-                return;
-            }
-            if (filter === "rail") {
-                radarMarkers.forEach(m => map.removeLayer(m));
-                radarMarkers = [];
-                logIntel("[RADAR] 🚆 RAIL Access Denied. National rail networks do not broadcast free global GPS transponders like aviation does.", "error");
-                return;
-            }
-
             const bounds = map.getBounds();
             // OpenSky bounding box: lamin, lomin, lamax, lomax
             const lamin = bounds.getSouth(), lomin = bounds.getWest();
             const lamax = bounds.getNorth(), lomax = bounds.getEast();
             
-            // Safety cap: don't query the entire planet or API will reject
-            if (Math.abs(lamax - lamin) > 20 || Math.abs(lomax - lomin) > 20) {
-                logIntel("[RADAR] Area too large for live transponder tracking. Please zoom in.", "error");
+            // Allow country-wide bounding boxes (up to 80x80 degrees).
+            // If the user is viewing the whole globe, OpenSky will reject it.
+            if (Math.abs(lamax - lamin) > 80 || Math.abs(lomax - lomin) > 80) {
+                logIntel("[RADAR] Area too large for API. Please zoom into a specific country or region.", "error");
+                radarMarkers.forEach(m => map.removeLayer(m));
+                radarMarkers = [];
                 return;
             }
 
@@ -408,6 +391,7 @@
                 });
             } catch(e) {
                 console.log("Radar fetch error:", e);
+                logIntel("[RADAR] Feed interrupted. OpenSky API rate limit reached or area too large. Retrying soon...", "warn");
             }
         }
         // Refresh radar automatically if panning while active
