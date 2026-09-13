@@ -853,26 +853,43 @@
             }
             const btn = document.getElementById("scanBtn");
             const filter = document.getElementById("scanFilter").value;
-            const query = document.getElementById('locationSearch').value.trim();
-            if (!query) return;
+            let query = document.getElementById('locationSearch').value.trim();
             
-            // PREVENT DESERT SCANS: Check if user is trying to Micro Scan an entire country
-            const upperQuery = query.toUpperCase();
-            const normQuery = upperQuery.replace(/ /g, "_");
-            if (COUNTRY_TARGETS[normQuery] || upperQuery === "IRAN / GULF") {
-                let key = upperQuery === "IRAN / GULF" ? "IRAN" : normQuery;
-                showTargetModal(key);
-                return;
-            }
+            let targetLat, targetLon;
 
-            btn.disabled = true;
-            try {
+            // If the search bar is empty, use the current map center (Optical Targeting)
+            if (!query) {
+                if (map.getZoom() < 10) {
+                    alert("Please zoom in closer (Zoom level 10+) to scan an area directly, or type a location.");
+                    return;
+                }
+                const center = map.getCenter();
+                targetLat = center.lat;
+                targetLon = center.lng;
+                query = `Orbital Lock: ${targetLat.toFixed(4)}, ${targetLon.toFixed(4)}`;
+                currentTarget = { lat: targetLat, lon: targetLon, name: query, bbox: [targetLat-0.1, targetLat+0.1, targetLon-0.1, targetLon+0.1], locked: true };
+            } else {
+                // PREVENT DESERT SCANS: Check if user is trying to Micro Scan an entire country
+                const upperQuery = query.toUpperCase();
+                const normQuery = upperQuery.replace(/ /g, "_");
+                if (COUNTRY_TARGETS[normQuery] || upperQuery === "IRAN / GULF") {
+                    let key = upperQuery === "IRAN / GULF" ? "IRAN" : normQuery;
+                    showTargetModal(key);
+                    return;
+                }
+                
                 // CLICK-LOCK: a place picked from infrastructure/suggestions already carries
                 // exact coordinates — photograph it directly, never re-geocode past it.
                 if (!currentTarget || !currentTarget.locked) {
                     await geocodeLocation(query);
                 }
-                logIntel(`[MICRO] Requesting Sentinel-2 orbital imagery...`);
+                targetLat = currentTarget.lat;
+                targetLon = currentTarget.lon;
+            }
+
+            btn.disabled = true;
+            try {
+                logIntel(`[MICRO] Requesting Sentinel-2 orbital imagery... Target: ${query}`);
                 clearOverlays();
 
                 const payload = { lat: currentTarget.lat, lon: currentTarget.lon, filter: filter };
