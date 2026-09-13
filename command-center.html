@@ -334,6 +334,7 @@
 
         const radarQueue = [];
         let radarQueueProcessing = false;
+        let lastRadarFetch = 0;
 
         async function processRadarQueue() {
             if (radarQueueProcessing) return;
@@ -351,9 +352,9 @@
                     if (data && data.states) renderRadarData(data.states);
                 } catch(e) {
                     if (e.message === "RateLimit") {
-                        logIntel("[RADAR] API Throttle Hit. Re-queueing request...", "warn");
-                        radarQueue.unshift(req); // Put back in front of queue
-                        await new Promise(r => setTimeout(r, 5000)); // Backoff
+                        logIntel("[RADAR] API Throttle Hit. Dropping queue to prevent bans...", "warn");
+                        radarQueue.length = 0; // Clear queue on ban to recover
+                        await new Promise(r => setTimeout(r, 5000));
                     }
                 }
                 // Rate limit mechanism: enforce strict 1.5s delay between requests
@@ -362,28 +363,42 @@
             radarQueueProcessing = false;
         }
 
-        async function fetchLiveRadar() {
+        function fetchLiveRadar() {
             if (!radarActive) return;
-            const bounds = map.getBounds();
-            const lamin = bounds.getSouth(), lomin = bounds.getWest();
-            const lamax = bounds.getNorth(), lomax = bounds.getEast();
             
+            const now = Date.now();
+            if (now - lastRadarFetch < 4000) return; // Prevent panning spam
+            lastRadarFetch = now;
+            
+            radarQueue.length = 0; // Clear pending chunks from old pan position
             radarMarkers.forEach(m => map.removeLayer(m));
             radarMarkers = [];
             
-            // Chunking Mechanism: If area is large, queue multiple smaller requests
+            const bounds = map.getBounds();
+            let lamin = bounds.getSouth(), lomin = bounds.getWest();
+            let lamax = bounds.getNorth(), lomax = bounds.getEast();
+            
+            // Hard API cap: OpenSky will outright reject massive coordinate spans
+            const MAX_SPAN = 20;
             const w = lamax - lamin;
             const h = lomax - lomin;
             
-            if (w > 20 || h > 20) {
-                logIntel("[RADAR] Massive Sector Detected. Chunking and queueing requests to avoid API bans...", "info");
-                const midLat = lamin + (w/2);
-                const midLon = lomin + (h/2);
-                // Push 4 quadrants to the queue
-                radarQueue.push({s: lamin, w: lomin, n: midLat, e: midLon});
-                radarQueue.push({s: lamin, w: midLon, n: midLat, e: lomax});
-                radarQueue.push({s: midLat, w: lomin, n: lamax, e: midLon});
-                radarQueue.push({s: midLat, w: midLon, n: lamax, e: lomax});
+            if (w > MAX_SPAN || h > MAX_SPAN) {
+                logIntel("[RADAR] Wide Sector Detected. Focused scan initiated at map center...", "info");
+                const midLat = (lamin + lamax) / 2;
+                const midLon = (lomin + lomax) / 2;
+                lamin = Math.max(-90, midLat - MAX_SPAN/2);
+                lamax = Math.min(90, midLat + MAX_SPAN/2);
+                lomin = Math.max(-180, midLon - MAX_SPAN/2);
+                lomax = Math.min(180, midLon + MAX_SPAN/2);
+                
+                // Chunk the capped region into 4 targeted API requests
+                const mLat = (lamin + lamax) / 2;
+                const mLon = (lomin + lomax) / 2;
+                radarQueue.push({s: lamin, w: lomin, n: mLat, e: mLon});
+                radarQueue.push({s: lamin, w: mLon, n: mLat, e: lomax});
+                radarQueue.push({s: mLat, w: lomin, n: lamax, e: mLon});
+                radarQueue.push({s: mLat, w: mLon, n: lamax, e: lomax});
             } else {
                 radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax});
             }
@@ -406,8 +421,13 @@
                 }
             });
         }
-        // Refresh radar automatically if panning while active
-        map.on('moveend', () => { if (radarActive) fetchLiveRadar(); });
+        
+        let moveTimer;
+        map.on('moveend', () => { 
+            if (!radarActive) return;
+            clearTimeout(moveTimer);
+            moveTimer = setTimeout(fetchLiveRadar, 800); 
+        });
 
         // Highly optimized native layer (avoids scary blob:S3 URLs)
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { 
