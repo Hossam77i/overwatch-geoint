@@ -346,7 +346,7 @@ def handler(event, context):
             url = f"https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{int(dist_nm)}"
             
             req = urllib.request.Request(url, headers={'User-Agent': 'Overwatch-GeoINT-Serverless'})
-            with urllib.request.urlopen(req, timeout=5.0) as res:
+            with urllib.request.urlopen(req, timeout=8.0) as res:
                 data = json.loads(res.read().decode())
                 
                 opensky_states = []

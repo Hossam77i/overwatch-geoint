@@ -377,14 +377,14 @@
                     
                     clearTimeout(timeoutId);
                     
-                    if (!res.ok) {
-                        throw new Error(`Proxy HTTP ${res.status}`);
-                    }
-                    
                     const proxyData = await res.json();
                     
+                    if (!res.ok) {
+                        throw new Error(`Proxy HTTP ${res.status}: ${proxyData.message || 'Unknown Error'}`);
+                    }
+                    
                     if (proxyData.status === "error") {
-                        throw new Error(`OpenSky Error: ${proxyData.message}`);
+                        throw new Error(`ADSB Error: ${proxyData.message}`);
                     }
 
                     const data = proxyData.radar_data;
@@ -396,8 +396,8 @@
                     }
                 } catch(e) {
                     clearTimeout(timeoutId);
-                    if (e.name === 'AbortError' || (e.message && e.message.includes('Timeout'))) {
-                        logIntel("[RADAR] Target Sensor Timeout. Backend proxy dropped connection.", "error");
+                    if (e.name === 'AbortError' || (e.message && (e.message.includes('Timeout') || e.message.includes('timed out')))) {
+                        logIntel("[RADAR] Target Sensor Timeout. Active scan delayed.", "warn");
                     } else {
                         logIntel(`[RADAR] Connection failure: ${e.message}`, "error");
                     }
