@@ -180,12 +180,15 @@
             </select>
 
             <div class="search-wrap"><input type="text" id="locationSearch" placeholder="Target Coordinate/City" autocomplete="off" /><div id="suggestBox"></div></div>
-            <select id="scanFilter">
-                <option value="maritime">🚢 Micro: Maritime</option>
-                <option value="energy">🛢️ Micro: Energy</option>
-                <option value="aviation">✈️ Micro: Aviation</option>
-            </select>
-            <button class="btn" id="scanBtn" onclick="executeScan()">MICRO SCAN</button>
+            <div class="bottom-controls">
+                <button id="drawBtn" class="btn draw-btn" onclick="toggleDrawMode()">⛶ Draw Frame</button>
+                <select id="scanFilter" style="background:#111; color:var(--accent); border:1px solid var(--border); border-radius:4px; padding:8px; font-family:monospace;">
+                    <option value="maritime">Maritime (Ships)</option>
+                    <option value="aviation">Aviation (Planes)</option>
+                    <option value="energy">Energy (Thermal)</option>
+                </select>
+                <button id="scanBtn" class="btn" onclick="executeScan()">⚡ MICRO SCAN</button>
+            </div>
             <button class="btn btn-macro" id="macroBtn" onclick="executeMacroOSINT()">MACRO OSINT</button>
             <button class="btn btn-reset" onclick="resetView()">RESET</button>
         </div>
@@ -247,6 +250,59 @@
         // tiles served at z3 where Esri coverage is complete (no gray gaps).
         const map = L.map('map', { center: [20.0, 10.0], zoom: 3, backgroundColor: '#000000', zoomControl: false, zoomSnap: 0, zoomDelta: 0.5, maxBounds: [[-90, -180], [90, 180]], maxBoundsViscosity: 0.7 });
         L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        let drawMode = false;
+        let drawStart = null;
+        let currentBox = null;
+        let drawnBounds = null;
+
+        function toggleDrawMode() {
+            drawMode = !drawMode;
+            const btn = document.getElementById("drawBtn");
+            if (drawMode) {
+                btn.style.background = "#00ffcc";
+                btn.style.color = "#000";
+                map.dragging.disable();
+                document.getElementById("map").style.cursor = "crosshair";
+                logIntel("Draw Mode ACTIVATED. Click and drag on the map to define the Tactical Frame.", "success");
+            } else {
+                btn.style.background = "var(--panel)";
+                btn.style.color = "var(--accent)";
+                map.dragging.enable();
+                document.getElementById("map").style.cursor = "";
+            }
+        }
+
+        map.on('mousedown', function(e) {
+            if (!drawMode) return;
+            drawStart = e.latlng;
+            if (currentBox) { map.removeLayer(currentBox); }
+            drawnBounds = null;
+        });
+
+        map.on('mousemove', function(e) {
+            if (!drawMode || !drawStart) return;
+            const bounds = L.latLngBounds(drawStart, e.latlng);
+            if (!currentBox) {
+                currentBox = L.rectangle(bounds, {color: "#00ffcc", weight: 2, fillOpacity: 0.1, dashArray: "5, 10"}).addTo(map);
+            } else {
+                currentBox.setBounds(bounds);
+            }
+        });
+
+        map.on('mouseup', function(e) {
+            if (!drawMode || !drawStart) return;
+            drawnBounds = L.latLngBounds(drawStart, e.latlng);
+            drawStart = null;
+            toggleDrawMode();
+            
+            // Set the target automatically
+            const c = drawnBounds.getCenter();
+            document.getElementById('locationSearch').value = `Frame: ${c.lat.toFixed(3)}, ${c.lng.toFixed(3)}`;
+            currentTarget = { lat: c.lat, lon: c.lng, locked: true, customBounds: drawnBounds };
+            logIntel(`Tactical Frame Locked: ${drawnBounds.toBBoxString()}`, "success");
+        });
+
         // Highly optimized native layer (avoids scary blob:S3 URLs)
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { 
             attribution: 'Tiles &copy; Esri', 
@@ -771,6 +827,20 @@
                 clearOverlays();
 
                 const payload = { lat: currentTarget.lat, lon: currentTarget.lon, filter: filter };
+                
+                if (currentTarget.customBounds) {
+                    const w = currentTarget.customBounds.getWest();
+                    const e = currentTarget.customBounds.getEast();
+                    const s = currentTarget.customBounds.getSouth();
+                    const n = currentTarget.customBounds.getNorth();
+                    payload.width_deg = Math.abs(e - w);
+                    payload.height_deg = Math.abs(n - s);
+                    
+                    // Cap max size to avoid timeouts
+                    if (payload.width_deg > 1.0) payload.width_deg = 1.0;
+                    if (payload.height_deg > 1.0) payload.height_deg = 1.0;
+                }
+
                 const startTime = performance.now();
                 const res = await fetch(TRIGGER_URL, { method: "POST", body: JSON.stringify(payload) });
                 const data = await res.json();
