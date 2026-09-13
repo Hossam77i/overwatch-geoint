@@ -362,7 +362,7 @@
                     const c_lat = (parseFloat(s) + parseFloat(n)) / 2;
                     const c_lon = (parseFloat(w) + parseFloat(e)) / 2;
 
-                    const res = await fetch('https://lq1y80l00b.execute-api.us-east-1.amazonaws.com/prod/scan', {
+                    const res = await fetch(TRIGGER_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
@@ -456,11 +456,24 @@
             states.forEach(state => {
                 const icao = state[0];
                 const callsign = (state[1] || "UNKNOWN").trim();
-                const lon = state[5], lat = state[6], alt = state[7] || 0, vel = state[9] || 0, track = state[10] || 0;
+                const lon = state[5], lat = state[6];
                 
                 if (lon && lat) {
+                    const alt_baro = state[7];
+                    const alt = (typeof alt_baro === 'number') ? alt_baro : 0;
+                    const vel = state[9] || 0, track = state[10] || 0;
+                    
                     const htmlContent = `<div style="transform: rotate(${track}deg); color: #ffea00; font-size: 16px; text-shadow: 0 0 5px #000;">✈</div><div style="color: #00ffcc; font-size: 9px; font-family: monospace; white-space: nowrap; margin-top: -4px;">${callsign}</div>`;
-                    const popupContent = `<div style="color:#00ffcc; font-family:monospace;"><b>FLIGHT: ${callsign}</b><br>Alt: ${(alt).toFixed(0)} m<br>Spd: ${(vel * 3.6).toFixed(0)} km/h<br>Hdg: ${track.toFixed(0)}°</div>`;
+                    
+                    const popupContent = `
+                        <div style="font-family: monospace; font-size: 11px;">
+                            <strong>FLIGHT ${callsign}</strong><br>
+                            ID: ${icao}<br>
+                            Alt: ${(alt).toFixed(0)} m<br>
+                            Spd: ${(vel * 3.6).toFixed(0)} km/h<br>
+                            Hdg: ${(track || 0).toFixed(1)}°
+                        </div>
+                    `;
                     
                     if (activePlanes[icao]) {
                         // Smoothly update position without blinking
