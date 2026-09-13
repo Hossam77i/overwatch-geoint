@@ -1527,8 +1527,30 @@
                     const text = filteredThreats.map(t => {
                         const d = new Date(parseInt(t.timestamp) * 1000);
                         const timeStr = isNaN(d) ? 'LIVE' : d.toISOString().split('T')[1].slice(0,8);
-                        return `[${timeStr}] 🎯 TARGET: ${t.ip || 'UNKNOWN'} | ⚠️ ANOMALY: ${t.payload || 'Unauthorized access attempt'}`;
-                    }).join(' &nbsp;&nbsp;🔴&nbsp;&nbsp; ');
+                        
+                        let threatType = (t.user_agent || '').replace('OVERWATCH-', '');
+                        if (threatType === 'MARITIME') threatType = '🚢 UNIDENTIFIED VESSELS';
+                        else if (threatType === 'MILITARY') threatType = '🪖 GROUND ARMOR/INFANTRY';
+                        else if (threatType === 'AVIATION') threatType = '✈️ UNAUTHORIZED AEROSPACE';
+                        else if (threatType === 'ENERGY') threatType = '⚡ THERMAL ENERGY SIGNATURE';
+                        else threatType = '⚠️ TACTICAL ANOMALY';
+
+                        let details = t.payload || 'Unauthorized access attempt';
+                        const match = details.match(/^(\d+)\s+ANOMALIES\s+AT\s+([\d.-]+),\s+([\d.-]+)/);
+                        if (match) {
+                            const count = match[1];
+                            const lat = parseFloat(match[2]).toFixed(4);
+                            const lon = parseFloat(match[3]).toFixed(4);
+                            if (count === "0") {
+                                details = `<span style="color:#a1a1aa;">SCAN NEGATIVE</span> at ${lat}°N, ${lon}°E`;
+                                threatType = threatType.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '🔎').replace('UNIDENTIFIED', 'CLEAR').replace('UNAUTHORIZED', 'CLEAR').replace('SIGNATURE', 'SCAN');
+                            } else {
+                                details = `<span style="color:#ef4444; font-weight:900;">${count} DETECTED</span> at ${lat}°N, ${lon}°E`;
+                            }
+                        }
+                        
+                        return `<span style="color:var(--info); font-family:monospace;">[${timeStr}]</span> <strong style="color:var(--accent-hi);">${threatType}</strong> — ${details} &nbsp;&nbsp;<span style="color:#52525b; font-size:0.8em;">(SOURCE: ${t.ip || 'GLOBAL-INTEL'})</span>`;
+                    }).join(' &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ');
                     marquee.innerHTML = text;
                 }
             } catch (e) {
