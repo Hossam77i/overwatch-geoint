@@ -367,15 +367,23 @@ def handler(event, context):
                     lon_val = ac.get('lon')
                     lat_val = ac.get('lat')
                     if lon_val is not None and lat_val is not None:
-                        vel_ms = ac.get('gs', 0) * 0.514444 # knots to m/s
-                        
-                        # Convert altitude from feet (ADSB.lol default) to meters
+                        # Safely parse Ground Speed
+                        gs_val = ac.get('gs')
+                        try:
+                            vel_ms = float(gs_val) * 0.514444 if gs_val is not None else 0
+                        except (ValueError, TypeError):
+                            vel_ms = 0
+                            
+                        # Safely parse Altitude
                         alt_ft = ac.get('alt_baro')
-                        alt_m = (alt_ft * 0.3048) if alt_ft is not None else 0
-                        
+                        try:
+                            alt_m = (float(alt_ft) * 0.3048) if alt_ft is not None else 0
+                        except (ValueError, TypeError):
+                            alt_m = 0
+                            
                         # Decrypt National Registry from ICAO Hex Block
-                        h = ac.get('hex', '').upper()
-                        reg = ac.get('r', '')
+                        h = str(ac.get('hex') or '').upper()
+                        reg = str(ac.get('r') or '')
                         c = "Unknown"
                         if h.startswith('A'): c = "United States"
                         elif h.startswith('C0') or h.startswith('C1') or h.startswith('C2') or h.startswith('C3'): c = "Canada"
