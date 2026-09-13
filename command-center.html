@@ -404,11 +404,11 @@
                     
                     clearTimeout(timeoutId);
                     
-                    const proxyData = await res.json();
-                    
                     if (!res.ok) {
-                        throw new Error(`Proxy HTTP ${res.status}: ${proxyData.message || 'Unknown Error'}`);
+                        const txt = await res.text();
+                        throw new Error(`Proxy HTTP ${res.status}: ${txt.substring(0, 40)}`);
                     }
+                    const proxyData = await res.json();
                     
                     if (proxyData.status === "error") {
                         throw new Error(`ADSB Error: ${proxyData.message}`);
@@ -899,8 +899,16 @@
             try {
                 // CLICK-LOCK: infra rows / sidebar already carry exact coords — use them directly, never re-geocode past them.
                 if (!currentTarget || !currentTarget.locked) {
-                    await geocodeLocation(query);
+                    const success = await geocodeLocation(query);
+                    if (!success) { btn.disabled = false; return; }
                 }
+                
+                if (!currentTarget || !currentTarget.bbox) {
+                    logIntel("Invalid target bounding box. Cannot execute Macro OSINT.", "error");
+                    btn.disabled = false;
+                    return;
+                }
+
                 if (query.toLowerCase().includes("hormuz") || query.toLowerCase().includes("iran")) {
                     logIntel(`CRISIS INTERCEPT: Open-Source News Scraping detected anomalous IRGC Maritime Activity in Sector 4...`, "crisis");
                 }
@@ -1097,7 +1105,13 @@
                 // CLICK-LOCK: a place picked from infrastructure/suggestions already carries
                 // exact coordinates — photograph it directly, never re-geocode past it.
                 if (!currentTarget || !currentTarget.locked) {
-                    await geocodeLocation(query);
+                    const success = await geocodeLocation(query);
+                    if (!success) { btn.disabled = false; return; }
+                }
+                if (!currentTarget) {
+                    logIntel("Invalid target location. Cannot execute Micro Scan.", "error");
+                    btn.disabled = false;
+                    return;
                 }
                 targetLat = currentTarget.lat;
                 targetLon = currentTarget.lon;
@@ -1125,10 +1139,12 @@
 
                 const startTime = performance.now();
                 const res = await fetch(TRIGGER_URL, { method: "POST", body: JSON.stringify(payload) });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error("HTTP " + res.status + " " + text.substring(0, 50));
+                }
                 const data = await res.json();
                 const endTime = performance.now();
-                
-                if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
                 
                 let timeSec = ((endTime - startTime) / 1000).toFixed(1);
                 
@@ -1454,6 +1470,7 @@
                 toggleBtn.innerText = '▲ SHOW THREAT FEED';
                 document.getElementById('main').style.height = 'calc(100vh - 70px)';
             }
+            setTimeout(() => { if (map) map.invalidateSize(); }, 350);
         }
 
         async function pollThreats() {
@@ -1463,6 +1480,7 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ action: 'get_threats' })
                 });
+                if (!res.ok) throw new Error("Threat API unresponsive");
                 const data = await res.json();
                 if (data.status === 'success' && data.threats && data.threats.length > 0) {
                     const countrySel = document.getElementById('countrySelect').value;
