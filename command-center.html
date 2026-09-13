@@ -423,10 +423,10 @@
                     }
                 } catch(e) {
                     clearTimeout(timeoutId);
-                    if (e.name === 'AbortError' || (e.message && (e.message.includes('Timeout') || e.message.includes('timed out')))) {
-                        logIntel("[RADAR] Target Sensor Timeout. Active scan delayed.", "warn");
+                    if (e.name === 'AbortError' || (e.message && (e.message.includes('Timeout') || e.message.includes('timed out') || e.message.includes('HTTP Error 5')))) {
+                        logIntel("[RADAR] Remote Sensor degraded (API Timeout). Retrying...", "warn");
                     } else {
-                        logIntel(`[RADAR] Connection failure: ${e.message}`, "error");
+                        logIntel(`[RADAR] Target Tracking Interruption: ${e.message.substring(0,40)}`, "warn");
                     }
                 }
                 await new Promise(r => setTimeout(r, 1500));
