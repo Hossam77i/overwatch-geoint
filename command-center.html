@@ -344,31 +344,47 @@
             
             while (radarQueue.length > 0) {
                 const req = radarQueue.shift();
+                
+                // Add a strict 4-second timeout so the queue NEVER hangs if OpenSky drops the TCP connection
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
+                
                 try {
-                    // Strictly clamp coordinates to valid global bounds to prevent HTTP 400 Bad Request
-                    const s = Math.max(-90, Math.min(90, req.s)).toFixed(4);
-                    const n = Math.max(-90, Math.min(90, req.n)).toFixed(4);
-                    let w = req.w, e = req.e;
-                    while (w < -180) w += 360;
-                    while (e > 180) e -= 360;
-                    w = w.toFixed(4);
-                    e = e.toFixed(4);
+                    // Strictly clamp coordinates to valid global bounds (-90 to 90, -180 to 180)
+                    const s = Math.max(-89.9, Math.min(89.9, req.s)).toFixed(4);
+                    const n = Math.max(-89.9, Math.min(89.9, req.n)).toFixed(4);
+                    const w = Math.max(-179.9, Math.min(179.9, req.w)).toFixed(4);
+                    const e = Math.max(-179.9, Math.min(179.9, req.e)).toFixed(4);
+                    
+                    // Safety check for inverted bounds
+                    if (parseFloat(s) >= parseFloat(n) || parseFloat(w) >= parseFloat(e)) {
+                        continue; // Skip invalid geometry chunks
+                    }
 
-                    const res = await fetch(`https://opensky-network.org/api/states/all?lamin=${s}&lomin=${w}&lamax=${n}&lomax=${e}`);
+                    const apiUrl = `https://opensky-network.org/api/states/all?lamin=${s}&lomin=${w}&lamax=${n}&lomax=${e}`;
+                    
+                    const res = await fetch(apiUrl, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
                     if (!res.ok) {
                         if (res.status === 429) throw new Error("RateLimit");
-                        logIntel(`[RADAR] Target Sensor Offline. OpenSky API rejected coordinates (Code ${res.status}).`, "error");
-                        continue;
+                        if (res.status === 400) throw new Error("BadRequest (Area too large or invalid)");
+                        throw new Error(`HTTP ${res.status}`);
                     }
+                    
                     const data = await res.json();
-                    if (data && data.states && data.states.length > 0) {
+                    
+                    if (data && data.states && Array.isArray(data.states) && data.states.length > 0) {
                         renderRadarData(data.states);
                     } else if (!req.isBackground) {
-                        logIntel("[RADAR] Airspace clear. No active transponders detected in this sector.", "warn");
+                        logIntel(`[RADAR] Airspace clear. 0 active transponders inside this ${w},${s} sector.`, "warn");
                     }
                 } catch(e) {
-                    if (e.message === "RateLimit") {
-                        logIntel("[RADAR] API Throttle Hit. Dropping queue to prevent bans...", "warn");
+                    clearTimeout(timeoutId);
+                    if (e.name === 'AbortError') {
+                        logIntel("[RADAR] Target Sensor Timeout. OpenSky API is dropping packets (Graylisted).", "error");
+                    } else if (e.message === "RateLimit") {
+                        logIntel("[RADAR] API Throttle Hit (429). Pausing requests to recover...", "warn");
                         radarQueue.length = 0; 
                         await new Promise(r => setTimeout(r, 5000));
                     } else {
@@ -384,7 +400,7 @@
             if (!radarActive) return;
             
             const now = Date.now();
-            if (isPan && now - lastRadarFetch < 4000) return; 
+            if (isPan && now - lastRadarFetch < 3000) return; 
             if (isPan) lastRadarFetch = now;
             
             if (isPan) {
@@ -406,10 +422,10 @@
                 if (isPan) logIntel("[RADAR] Wide Sector Detected. Focused scan initiated at map center...", "info");
                 const midLat = (lamin + lamax) / 2;
                 const midLon = (lomin + lomax) / 2;
-                lamin = Math.max(-90, midLat - MAX_SPAN/2);
-                lamax = Math.min(90, midLat + MAX_SPAN/2);
-                lomin = Math.max(-180, midLon - MAX_SPAN/2);
-                lomax = Math.min(180, midLon + MAX_SPAN/2);
+                lamin = Math.max(-89, midLat - MAX_SPAN/2);
+                lamax = Math.min(89, midLat + MAX_SPAN/2);
+                lomin = Math.max(-179, midLon - MAX_SPAN/2);
+                lomax = Math.min(179, midLon + MAX_SPAN/2);
                 
                 const mLat = (lamin + lamax) / 2;
                 const mLon = (lomin + lomax) / 2;
