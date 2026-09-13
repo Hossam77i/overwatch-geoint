@@ -107,6 +107,17 @@
     </style>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Tactical Airplane Profile Modal -->
+    <div id="airplaneModal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); width:450px; background:rgba(24, 24, 27, 0.95); backdrop-filter: blur(10px); border:1px solid var(--info); z-index:10001; border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,0.8); color:var(--text); font-family:inherit;">
+        <div style="padding:15px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background: rgba(14, 165, 233, 0.1); border-radius: 12px 12px 0 0;">
+            <div style="font-weight:600; color:var(--info); font-size:1.1em; letter-spacing:0.05em; display:flex; align-items:center; gap:8px;">
+                ✈️ TACTICAL AIRCRAFT PROFILE
+            </div>
+            <button onclick="document.getElementById('airplaneModal').style.display='none'" style="background:none; border:none; color:var(--text-2); cursor:pointer; font-size:1.2em; padding:0;">✖</button>
+        </div>
+        <div id="airplaneContent" style="padding:20px;"></div>
+    </div>
     
     <div id="threat-ticker" style="width: 100%; height: 26px; background: rgba(200, 0, 0, 0.9); color: #fff; z-index: 10000; display: flex; align-items: center; font-family: monospace; font-size: 13px; overflow: hidden; border-bottom: 1px solid #ff3333; box-shadow: 0 0 10px rgba(255,0,0,0.5);">
         <div style="background: #000; padding: 0 15px; font-weight: bold; border-right: 1px solid #ff3333; height: 100%; display: flex; align-items: center; white-space: nowrap; text-shadow: 0 0 5px #ff0000; letter-spacing: 1px;">🚨 THREAT FEED</div>
@@ -315,6 +326,9 @@
             document.getElementById('locationSearch').value = `Frame: ${c.lat.toFixed(3)}, ${c.lng.toFixed(3)}`;
             currentTarget = { lat: c.lat, lon: c.lng, locked: true, customBounds: drawnBounds };
             logIntel(`Tactical Frame Locked: ${drawnBounds.toBBoxString()}`, "success");
+            
+            // Task 3: Automatically trigger the Computer Vision scan immediately after drawing the box
+            setTimeout(executeScan, 300);
         });
 
         // --- LIVE RADAR (ADS-B OpenSky) ---
@@ -475,12 +489,15 @@
                     const htmlContent = `<div style="transform: rotate(${track}deg); color: #ffea00; font-size: 16px; text-shadow: 0 0 5px #000;">✈</div><div style="color: #00ffcc; font-size: 9px; font-family: monospace; white-space: nowrap; margin-top: -4px;">${callsign}</div>`;
                     
                     const popupContent = `
-                        <div style="font-family: monospace; font-size: 11px;">
-                            <strong>FLIGHT ${callsign}</strong><br>
-                            ID: ${icao}<br>
-                            Alt: ${(alt).toFixed(0)} m<br>
-                            Spd: ${(vel * 3.6).toFixed(0)} km/h<br>
-                            Hdg: ${(track || 0).toFixed(1)}°
+                        <div style="font-family: monospace; font-size: 11px; padding: 4px;">
+                            <strong style="color:var(--info); font-size:13px; display:block; margin-bottom:4px; border-bottom:1px solid #333; padding-bottom:4px;">FLIGHT ${callsign}</strong>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:8px;">
+                                <div><span style="color:#666;">ID:</span> ${icao.toUpperCase()}</div>
+                                <div><span style="color:#666;">ALT:</span> ${(alt).toFixed(0)} m</div>
+                                <div><span style="color:#666;">SPD:</span> ${(vel * 3.6).toFixed(0)} km/h</div>
+                                <div><span style="color:#666;">HDG:</span> ${(track || 0).toFixed(1)}°</div>
+                            </div>
+                            <button onclick="showAirplaneProfile('${icao}', '${callsign}', ${alt}, ${vel}, ${track})" style="width:100%; background:var(--info); color:#000; font-weight:bold; border:none; padding:6px; cursor:pointer; font-size:10px; border-radius:4px; text-transform:uppercase;">VIEW TACTICAL PROFILE</button>
                         </div>
                     `;
                     
@@ -1078,9 +1095,9 @@
                     payload.width_deg = Math.abs(e - w);
                     payload.height_deg = Math.abs(n - s);
                     
-                    // Cap max size to avoid timeouts
-                    if (payload.width_deg > 1.0) payload.width_deg = 1.0;
-                    if (payload.height_deg > 1.0) payload.height_deg = 1.0;
+                    if (payload.width_deg > 2.0 || payload.height_deg > 2.0) {
+                        logIntel("[MICRO] WARNING: Frame is massive. Sentinel-2 orbital imagery resolution will be heavily degraded. CV accuracy may drop.", "warn");
+                    }
                 }
 
                 const startTime = performance.now();
@@ -1201,6 +1218,56 @@
                 btn.innerText = oldText;
                 btn.disabled = false;
             }
+        }
+
+        async function showAirplaneProfile(icao, callsign, alt, vel, track) {
+            document.getElementById('airplaneModal').style.display = 'block';
+            const content = document.getElementById('airplaneContent');
+            content.innerHTML = `<div style="text-align:center; color:var(--info); font-family:monospace; margin: 20px 0;">Establishing secure SATCOM link to aviation database...<br><span style="font-size:0.8em; color:var(--text-2);">Retrieving visual signature for Hex ${icao.toUpperCase()}</span></div>`;
+            
+            let photoHtml = `<div style="height:150px; background:#000; border:1px solid #333; display:flex; align-items:center; justify-content:center; color:#555; margin-bottom:15px; border-radius:6px; font-family:monospace; font-size:12px;">NO VISUAL RECORD FOUND IN OPEN-SOURCE DATABASES</div>`;
+            
+            try {
+                // Fetch photo from planespotters API (CORS friendly)
+                const res = await fetch(`https://api.planespotters.net/pub/photos/hex/${icao}`);
+                const data = await res.json();
+                if (data.photos && data.photos.length > 0) {
+                    photoHtml = `<div style="margin-bottom:15px; border-radius:6px; overflow:hidden; border:1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                        <img src="${data.photos[0].thumbnail_large.src}" style="width:100%; display:block;" />
+                        <div style="background:#000; color:var(--text-2); font-size:9px; font-family:monospace; padding:4px 8px; text-align:right;">PHOTO IDENTIFICATION MATCH</div>
+                    </div>`;
+                }
+            } catch(e) {}
+            
+            content.innerHTML = `
+                ${photoHtml}
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-family:monospace; font-size:12px;">
+                    <div style="background:var(--panel); padding:10px; border:1px solid var(--border); border-radius:6px; box-shadow:inset 0 0 10px rgba(0,0,0,0.5);">
+                        <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">CALLSIGN</div>
+                        <div style="color:var(--info); font-weight:bold; font-size:16px;">${callsign}</div>
+                    </div>
+                    <div style="background:var(--panel); padding:10px; border:1px solid var(--border); border-radius:6px; box-shadow:inset 0 0 10px rgba(0,0,0,0.5);">
+                        <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">HEX TRANSPONDER</div>
+                        <div style="color:var(--text); font-size:16px;">${icao.toUpperCase()}</div>
+                    </div>
+                    <div style="background:var(--panel); padding:10px; border:1px solid var(--border); border-radius:6px; box-shadow:inset 0 0 10px rgba(0,0,0,0.5);">
+                        <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">CRUISING ALTITUDE</div>
+                        <div style="color:var(--warn); font-size:16px;">${(alt).toFixed(0)} m</div>
+                    </div>
+                    <div style="background:var(--panel); padding:10px; border:1px solid var(--border); border-radius:6px; box-shadow:inset 0 0 10px rgba(0,0,0,0.5);">
+                        <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">TRUE VELOCITY</div>
+                        <div style="color:var(--warn); font-size:16px;">${(vel * 3.6).toFixed(0)} km/h</div>
+                    </div>
+                    <div style="background:var(--panel); padding:10px; border:1px solid var(--border); border-radius:6px; box-shadow:inset 0 0 10px rgba(0,0,0,0.5); grid-column:span 2; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">CURRENT HEADING</div>
+                            <div style="color:var(--text); font-size:16px;">${track.toFixed(1)}°</div>
+                        </div>
+                        <div style="color:var(--success); font-weight:bold; font-size:18px; transform: rotate(${track}deg);">✈</div>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('airplaneModal').style.display='none'" style="width:100%; margin-top:15px; background:var(--info); color:#000; border:none; padding:10px; cursor:pointer; font-weight:bold; border-radius:6px; font-family:monospace; letter-spacing:1px;">CLOSE TACTICAL PROFILE</button>
+            `;
         }
 
         async function pollThreats() {
