@@ -319,6 +319,21 @@ def handler(event, context):
         except Exception as e:
             return {"statusCode": 500, "headers": {"Access-Control-Allow-Origin": "*"}, "body": json.dumps({"error": str(e)})}
 
+    if body.get('action') == 'get_threats':
+        try:
+            table = boto3.resource('dynamodb', region_name='us-east-1').Table('cloud-resume-threats')
+            # For portfolio scale, a bounded scan is safe and cost-effective
+            response = table.scan(Limit=20)
+            items = response.get('Items', [])
+            items.sort(key=lambda x: int(x.get('timestamp', 0)), reverse=True)
+            return {
+                "statusCode": 200,
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "body": json.dumps({"status": "success", "threats": items[:5]})
+            }
+        except Exception as e:
+            return {"statusCode": 500, "headers": {"Access-Control-Allow-Origin": "*"}, "body": json.dumps({"error": str(e)})}
+
     try:
         lat = float(body.get('lat', 30.5852))
         lon = float(body.get('lon', 32.3503))
