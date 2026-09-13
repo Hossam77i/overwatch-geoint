@@ -1177,6 +1177,23 @@
         // --- NEW FEATURES: DOSSIER EXPORT & THREAT FEED ---
 
         async function exportDossier() {
+            const country = document.getElementById('countrySelect');
+            const sectorFocus = country.options[country.selectedIndex].text;
+            const targetId = country.value;
+
+            // Enforce 30-minute global resource cooldown per country
+            const cooldownKey = `overwatch_dossier_cooldown_${targetId}`;
+            const lastExport = localStorage.getItem(cooldownKey);
+            if (lastExport) {
+                const timePassed = Date.now() - parseInt(lastExport);
+                const timeRemaining = (30 * 60 * 1000) - timePassed;
+                if (timeRemaining > 0) {
+                    const minLeft = Math.ceil(timeRemaining / 60000);
+                    logIntel(`[SYSTEM] Resources conserved. A dossier for ${sectorFocus} was recently compiled. Please wait ${minLeft} minutes or review your previous report.`, "warn");
+                    return;
+                }
+            }
+
             logIntel("[DOSSIER] Compiling strategic snapshot to PDF...", "warn");
             const btn = document.getElementById('exportBtn');
             const oldText = btn.innerText;
@@ -1184,9 +1201,6 @@
             btn.disabled = true;
             
             try {
-                const country = document.getElementById('countrySelect');
-                const sectorFocus = country.options[country.selectedIndex].text;
-                
                 // 1. Gather Aerospace Data
                 const planeEntries = Object.entries(activePlanes);
                 const activeCount = planeEntries.length;
@@ -1279,6 +1293,7 @@
                 };
                 
                 await html2pdf().set(opt).from(element).save();
+                localStorage.setItem(cooldownKey, Date.now().toString());
                 logIntel("[DOSSIER] National Strategic Dossier successfully exported.", "success");
             } catch(e) {
                 logIntel(`[DOSSIER] Export failed: ${e.message}`, "error");
