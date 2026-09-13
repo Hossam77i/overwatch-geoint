@@ -55,8 +55,8 @@ resource "aws_lambda_function" "overwatch_lambda" {
 # EventBridge Rule to run every morning at 8:00 AM UTC
 resource "aws_cloudwatch_event_rule" "daily_trigger" {
   name                = "overwatch-daily-trigger"
-  description         = "Trigger Overwatch GEOINT daily"
-  schedule_expression = "cron(0 8 * * ? *)"
+  description         = "Triggers the Overwatch GEOINT pipeline every 6 hours to rotate through 15 countries"
+  schedule_expression = "rate(6 hours)"
 }
 
 resource "aws_cloudwatch_event_target" "lambda_target" {

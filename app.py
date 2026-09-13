@@ -10,7 +10,14 @@ def deg2num(lat_deg, lon_deg, zoom):
 INFRA_COUNTRIES = {
     'EGYPT': 'EG', 'IRAN': 'IR', 'RUSSIA': 'RU', 'NORTH_KOREA': 'KP', 'SAUDI_ARABIA': 'SA',
     'CHINA': 'CN', 'USA': 'US', 'ISRAEL': 'IL', 'UK': 'GB', 'FRANCE': 'FR',
-    'GERMANY': 'DE', 'INDIA': 'IN', 'PAKISTAN': 'PK', 'SYRIA': 'SY', 'UKRAINE': 'UA'
+    'GERMANY': 'DE', 'INDIA': 'IN', 'PAKISTAN': 'PK', 'SYRIA': 'SY', 'UKRAINE': 'UA',
+    'JAPAN': 'JP', 'SOUTH_KOREA': 'KR', 'TAIWAN': 'TW', 'AUSTRALIA': 'AU', 'CANADA': 'CA',
+    'BRAZIL': 'BR', 'MEXICO': 'MX', 'ARGENTINA': 'AR', 'TURKEY': 'TR', 'GREECE': 'GR',
+    'ITALY': 'IT', 'SPAIN': 'ES', 'POLAND': 'PL', 'SWEDEN': 'SE', 'NORWAY': 'NO',
+    'FINLAND': 'FI', 'DENMARK': 'DK', 'NETHERLANDS': 'NL', 'BELGIUM': 'BE', 'SWITZERLAND': 'CH',
+    'UAE': 'AE', 'QATAR': 'QA', 'IRAQ': 'IQ', 'YEMEN': 'YE', 'OMAN': 'OM',
+    'SOUTH_AFRICA': 'ZA', 'NIGERIA': 'NG', 'KENYA': 'KE', 'ETHIOPIA': 'ET', 'ALGERIA': 'DZ',
+    'MOROCCO': 'MA', 'VENEZUELA': 'VE', 'COLOMBIA': 'CO', 'CHILE': 'CL', 'PERU': 'PE'
 }
 OVERPASS_MIRRORS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
 INFRA_UA = {"User-Agent": "Overwatch-GEOINT/1.0 (contact: overwatch demo; cache 24h)"}
@@ -295,7 +302,7 @@ def handler(event, context):
             elif body.get('action') == 'refresh_all_infra':
                 countries = list(INFRA_COUNTRIES.keys())
             else:  # EventBridge backup: rotate one country/6 hours 
-                clist = list(INFRA_COUNTRIES.keys())
+                clist = list(INFRA_COUNTRIES.keys())[:10]
                 countries = [clist[int(time.time() // 21600) % len(clist)]]
             done, errors = {}, {}
             for c in countries:

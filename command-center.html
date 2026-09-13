@@ -104,144 +104,9 @@
         /* Calm static texture only — no animation, no flicker */
         .grid-overlay { display: none; }
         .scanline { display: none; }
+    </style>
     <!-- Scanline effect overlay -->
     <div class="scanline"></div>
-
-    <!-- AI Chatbot UI -->
-    <div id="aiChatWindow" class="chat-expanded" style="position:fixed; bottom:25px; right:85px; width:400px; background:rgba(18, 18, 22, 0.95); border:1px solid rgba(20, 184, 166, 0.5); border-radius:12px; z-index:10000; display:flex; flex-direction:column; box-shadow:0 16px 40px rgba(0,0,0,0.8), 0 0 20px rgba(20,184,166,0.15); backdrop-filter:blur(12px); font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; overflow:hidden; transition:all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);">
-        <!-- Header -->
-        <div style="background:linear-gradient(90deg, rgba(20,184,166,0.15), rgba(20,184,166,0.05)); color:var(--accent-hi); padding:16px 20px; font-weight:600; display:flex; justify-content:space-between; align-items:center; cursor:pointer; border-bottom:1px solid rgba(20,184,166,0.2); font-size:0.9em; letter-spacing:0.04em;" onclick="toggleChat()">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span class="live-dot" id="chatDot" style="width:8px; height:8px; border-radius:50%; background:var(--success); box-shadow:0 0 8px var(--success);"></span>
-                <span id="chatTitle" style="font-family:ui-monospace, SFMono-Regular, monospace; text-transform:uppercase;">Overwatch AI</span>
-            </div>
-            <span id="chatToggleBtn" style="font-size:1.5em; line-height:1; color:#888; transition:color 0.2s;">−</span>
-        </div>
-        
-        <!-- Chat Body -->
-        <div id="chatBody" style="display:flex; flex-direction:column; height:420px; transition:opacity 0.3s ease;">
-            <!-- History -->
-            <div id="chatHistory" style="flex:1; overflow-y:auto; padding:20px; font-size:0.92em; color:#e0e0e0; display:flex; flex-direction:column; gap:16px;">
-                <div style="align-self:flex-start; background:rgba(20,184,166,0.1); border-left:3px solid var(--accent); padding:12px 16px; border-radius:4px 12px 12px 12px; max-width:85%; line-height:1.6;">
-                    <div style="font-family:ui-monospace, monospace; font-size:0.8em; color:var(--accent-hi); margin-bottom:6px; opacity:0.8;">SYSTEM</div>
-                    Direct uplink established to Overwatch architecture framework. How can I assist you today?
-                </div>
-            </div>
-            
-            <!-- Input Area -->
-            <div style="display:flex; align-items:center; padding:12px 16px; background:rgba(0,0,0,0.3); border-top:1px solid rgba(255,255,255,0.08);">
-                <input type="text" id="chatInput" placeholder="Message Overwatch AI..." style="flex:1; border:1px solid rgba(255,255,255,0.1); border-radius:20px; background:rgba(255,255,255,0.05); padding:10px 16px; color:#fff; font-family:inherit; font-size:0.9em; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='rgba(20,184,166,0.5)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'" onkeypress="if(event.key==='Enter') sendChat()">
-                <button onclick="sendChat()" style="background:var(--accent); color:#000; border:none; border-radius:50%; width:36px; height:36px; margin-left:10px; display:flex; justify-content:center; align-items:center; cursor:pointer; box-shadow:0 4px 10px rgba(20,184,166,0.3); transition:transform 0.1s, background 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onmouseover="this.style.background='#1cdbc5'" onmouseout="this.style.background='var(--accent)'">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <style>
-        /* Custom scrollbar for chat history */
-        #chatHistory::-webkit-scrollbar { width: 6px; }
-        #chatHistory::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-        #chatHistory::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-        #chatHistory::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
-        .ai-message p { margin: 0 0 8px 0; }
-        .ai-message p:last-child { margin: 0; }
-        .ai-message ul { margin: 8px 0; padding-left: 20px; }
-        .ai-message li { margin-bottom: 4px; }
-    </style>
-
-    <script>
-        const CHAT_API = "https://vlxzpmaq7e.execute-api.us-east-1.amazonaws.com/chat";
-        let sessionId = "session-" + Math.random().toString(36).substr(2, 9);
-        
-        function toggleChat() {
-            const win = document.getElementById('aiChatWindow');
-            const body = document.getElementById('chatBody');
-            const btn = document.getElementById('chatToggleBtn');
-            const title = document.getElementById('chatTitle');
-            const dot = document.getElementById('chatDot');
-            
-            if (win.classList.contains('chat-expanded')) {
-                // Collapse
-                win.classList.remove('chat-expanded');
-                body.style.display = 'none';
-                win.style.width = '260px';
-                win.style.borderRadius = '24px';
-                btn.innerHTML = '＋';
-                title.innerText = 'AI STANDBY';
-                dot.style.background = '#666';
-                dot.style.boxShadow = 'none';
-                dot.style.animation = 'none';
-            } else {
-                // Expand
-                win.classList.add('chat-expanded');
-                body.style.display = 'flex';
-                win.style.width = '400px';
-                win.style.borderRadius = '12px';
-                btn.innerHTML = '−';
-                title.innerText = 'Overwatch AI';
-                dot.style.background = 'var(--success)';
-                dot.style.boxShadow = '0 0 8px var(--success)';
-                dot.style.animation = 'softpulse 2.4s ease-in-out infinite';
-            }
-        }
-
-        async function sendChat() {
-            const input = document.getElementById('chatInput');
-            const history = document.getElementById('chatHistory');
-            const msg = input.value.trim();
-            if(!msg) return;
-            
-            input.value = '';
-            
-            // User bubble
-            history.innerHTML += `<div style="align-self:flex-end; background:rgba(255,255,255,0.1); padding:12px 16px; border-radius:12px 12px 4px 12px; max-width:85%; color:#fff; line-height:1.5;">
-                ${msg}
-            </div>`;
-            history.scrollTop = history.scrollHeight;
-            
-            const loadingId = "load-" + Date.now();
-            history.innerHTML += `<div id="${loadingId}" style="align-self:flex-start; color:var(--accent); font-family:ui-monospace, monospace; font-size:0.8em; margin-top:4px; opacity:0.8;">
-                <span class="live-dot" style="width:6px; height:6px; margin-right:6px; animation: softpulse 1s infinite;"></span>Processing...
-            </div>`;
-            history.scrollTop = history.scrollHeight;
-
-            try {
-                const res = await fetch(CHAT_API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg, session_id: sessionId })
-                });
-                const data = await res.json();
-                document.getElementById(loadingId).remove();
-                
-                if(res.status === 429) {
-                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(239,68,68,0.1); border-left:3px solid var(--danger); padding:12px 16px; border-radius:4px 12px 12px 12px; max-width:85%; color:#fff; line-height:1.5;">
-                        <div style="font-family:ui-monospace, monospace; font-size:0.8em; color:var(--danger); margin-bottom:6px; opacity:0.9;">SYS_ERR 429</div>
-                        ${data.error}
-                    </div>`;
-                } else if(data.reply) {
-                    // Better Markdown parsing
-                    let formattedReply = data.reply
-                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#fff;">$1</strong>')
-                        .replace(/\*(.*?)\*/g, '<em style="color:#e0e0e0;">$1</em>')
-                        .replace(/`(.*?)`/g, '<code style="background:rgba(0,0,0,0.5); padding:2px 5px; border-radius:4px; color:#14b8a6; font-family:monospace; font-size:0.9em;">$1</code>')
-                        .replace(/\n\n/g, '</p><p>')
-                        .replace(/\n/g, '<br>');
-                        
-                    history.innerHTML += `<div class="ai-message" style="align-self:flex-start; background:rgba(20,184,166,0.1); border-left:3px solid var(--accent); padding:12px 16px; border-radius:4px 12px 12px 12px; max-width:85%; color:#e0e0e0; line-height:1.6; font-size:0.95em;">
-                        <p>${formattedReply}</p>
-                    </div>`;
-                } else {
-                    history.innerHTML += `<div style="align-self:flex-start; color:var(--danger); font-size:0.85em; font-family:ui-monospace, monospace;">[!] Network error.</div>`;
-                }
-            } catch (e) {
-                document.getElementById(loadingId).remove();
-                history.innerHTML += `<div style="align-self:flex-start; color:var(--danger); font-size:0.85em; font-family:ui-monospace, monospace;">[!] Connection lost.</div>`;
-            }
-            history.scrollTop = history.scrollHeight;
-        }
-    </script>
 
     <div id="targetModal" style="display:none; position:absolute; top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9999; justify-content:center; align-items:center; font-family:inherit;">
         <div style="background:var(--panel); border:1px solid var(--border); padding:22px; width:450px; max-width:92vw; color:var(--text); border-radius:12px; box-shadow: 0 12px 32px rgba(0,0,0,0.5);">
@@ -277,6 +142,41 @@
                 <option value="PAKISTAN">🇵🇰 Pakistan</option>
                 <option value="SYRIA">🇸🇾 Syria</option>
                 <option value="UKRAINE">🇺🇦 Ukraine</option>
+                <option value="JAPAN">🇯🇵 Japan</option>
+                <option value="SOUTH_KOREA">🇰🇷 South Korea</option>
+                <option value="TAIWAN">🇹🇼 Taiwan</option>
+                <option value="AUSTRALIA">🇦🇺 Australia</option>
+                <option value="CANADA">🇨🇦 Canada</option>
+                <option value="BRAZIL">🇧🇷 Brazil</option>
+                <option value="MEXICO">🇲🇽 Mexico</option>
+                <option value="ARGENTINA">🇦🇷 Argentina</option>
+                <option value="TURKEY">🇹🇷 Turkey</option>
+                <option value="GREECE">🇬🇷 Greece</option>
+                <option value="ITALY">🇮🇹 Italy</option>
+                <option value="SPAIN">🇪🇸 Spain</option>
+                <option value="POLAND">🇵🇱 Poland</option>
+                <option value="SWEDEN">🇸🇪 Sweden</option>
+                <option value="NORWAY">🇳🇴 Norway</option>
+                <option value="FINLAND">🇫🇮 Finland</option>
+                <option value="DENMARK">🇩🇰 Denmark</option>
+                <option value="NETHERLANDS">🇳🇱 Netherlands</option>
+                <option value="BELGIUM">🇧🇪 Belgium</option>
+                <option value="SWITZERLAND">🇨🇭 Switzerland</option>
+                <option value="UAE">🇦🇪 UAE</option>
+                <option value="QATAR">🇶🇦 Qatar</option>
+                <option value="IRAQ">🇮🇶 Iraq</option>
+                <option value="YEMEN">🇾🇪 Yemen</option>
+                <option value="OMAN">🇴🇲 Oman</option>
+                <option value="SOUTH_AFRICA">🇿🇦 South Africa</option>
+                <option value="NIGERIA">🇳🇬 Nigeria</option>
+                <option value="KENYA">🇰🇪 Kenya</option>
+                <option value="ETHIOPIA">🇪🇹 Ethiopia</option>
+                <option value="ALGERIA">🇩🇿 Algeria</option>
+                <option value="MOROCCO">🇲🇦 Morocco</option>
+                <option value="VENEZUELA">🇻🇪 Venezuela</option>
+                <option value="COLOMBIA">🇨🇴 Colombia</option>
+                <option value="CHILE">🇨🇱 Chile</option>
+                <option value="PERU">🇵🇪 Peru</option>
             </select>
 
             <div class="search-wrap"><input type="text" id="locationSearch" placeholder="Target Coordinate/City" autocomplete="off" /><div id="suggestBox"></div></div>
@@ -529,19 +429,19 @@
 
         function renderInfra(c) {
             const title = document.getElementById("infraTitle");
-            if (c === "GLOBAL" || !COUNTRY_INFRA[c]) {
+            if (c === "GLOBAL") {
                 title.textContent = "🏗️ Country Infrastructure";
                 document.getElementById("infraBody").innerHTML = "Select a country for a professional infrastructure brief.";
                 window._infraStatic = []; window._infraDB = [];
                 return;
             }
-            const m = COUNTRY_INFRA[c];
+            const m = COUNTRY_INFRA[c] || { flag: "🌐", name: c.replace(/_/g, ' '), center: [20.0, 10.0], zoom: 4, summary: "Dynamic tracking enabled. Live infrastructure sync active.", assets: [] };
             title.textContent = `${m.flag} ${m.name} — Infrastructure`;
             window._infraStatic = m.assets; window._infraDB = [];
             window._infraFilter = window._infraFilter || 'All';
             window._infraSummary = m.summary; window._infraSync = true;
             paintInfra();
-            logIntel(`${m.name}: professional brief opened — ${m.assets.length} tracked places.`, "success");
+            logIntel(`${m.name}: professional brief opened — tracking active.`, "success");
             loadInfraFromDB(c);
         }
 
