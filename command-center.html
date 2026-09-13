@@ -345,18 +345,34 @@
             while (radarQueue.length > 0) {
                 const req = radarQueue.shift();
                 try {
-                    const res = await fetch(`https://opensky-network.org/api/states/all?lamin=${req.s}&lomin=${req.w}&lamax=${req.n}&lomax=${req.e}`);
+                    // Strictly clamp coordinates to valid global bounds to prevent HTTP 400 Bad Request
+                    const s = Math.max(-90, Math.min(90, req.s)).toFixed(4);
+                    const n = Math.max(-90, Math.min(90, req.n)).toFixed(4);
+                    let w = req.w, e = req.e;
+                    while (w < -180) w += 360;
+                    while (e > 180) e -= 360;
+                    w = w.toFixed(4);
+                    e = e.toFixed(4);
+
+                    const res = await fetch(`https://opensky-network.org/api/states/all?lamin=${s}&lomin=${w}&lamax=${n}&lomax=${e}`);
                     if (!res.ok) {
                         if (res.status === 429) throw new Error("RateLimit");
+                        logIntel(`[RADAR] Target Sensor Offline. OpenSky API rejected coordinates (Code ${res.status}).`, "error");
                         continue;
                     }
                     const data = await res.json();
-                    if (data && data.states) renderRadarData(data.states);
+                    if (data && data.states && data.states.length > 0) {
+                        renderRadarData(data.states);
+                    } else if (!req.isBackground) {
+                        logIntel("[RADAR] Airspace clear. No active transponders detected in this sector.", "warn");
+                    }
                 } catch(e) {
                     if (e.message === "RateLimit") {
                         logIntel("[RADAR] API Throttle Hit. Dropping queue to prevent bans...", "warn");
                         radarQueue.length = 0; 
                         await new Promise(r => setTimeout(r, 5000));
+                    } else {
+                        logIntel(`[RADAR] Connection failure: ${e.message}`, "error");
                     }
                 }
                 await new Promise(r => setTimeout(r, 1500));
@@ -372,7 +388,6 @@
             if (isPan) lastRadarFetch = now;
             
             if (isPan) {
-                // Only wipe markers when physically moving the map, not on the background 12s refresh
                 radarQueue.length = 0; 
                 Object.values(activePlanes).forEach(p => map.removeLayer(p.marker));
                 activePlanes = {};
@@ -382,9 +397,9 @@
             let lamin = bounds.getSouth(), lomin = bounds.getWest();
             let lamax = bounds.getNorth(), lomax = bounds.getEast();
             
-            const MAX_SPAN = 20;
-            const w = lamax - lamin;
-            const h = lomax - lomin;
+            const MAX_SPAN = 15;
+            const w = Math.abs(lomax - lomin);
+            const h = Math.abs(lamax - lamin);
             
             if (w > MAX_SPAN || h > MAX_SPAN) {
                 if (isPan) logIntel("[RADAR] Wide Sector Detected. Focused scan initiated at map center...", "info");
@@ -397,12 +412,12 @@
                 
                 const mLat = (lamin + lamax) / 2;
                 const mLon = (lomin + lomax) / 2;
-                radarQueue.push({s: lamin, w: lomin, n: mLat, e: mLon});
-                radarQueue.push({s: lamin, w: mLon, n: mLat, e: lomax});
-                radarQueue.push({s: mLat, w: lomin, n: lamax, e: mLon});
-                radarQueue.push({s: mLat, w: mLon, n: lamax, e: lomax});
+                radarQueue.push({s: lamin, w: lomin, n: mLat, e: mLon, isBackground: !isPan});
+                radarQueue.push({s: lamin, w: mLon, n: mLat, e: lomax, isBackground: !isPan});
+                radarQueue.push({s: mLat, w: lomin, n: lamax, e: mLon, isBackground: !isPan});
+                radarQueue.push({s: mLat, w: mLon, n: lamax, e: lomax, isBackground: !isPan});
             } else {
-                radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax});
+                radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax, isBackground: !isPan});
             }
             
             processRadarQueue();
