@@ -182,13 +182,23 @@
             <div class="search-wrap"><input type="text" id="locationSearch" placeholder="Target Coordinate/City" autocomplete="off" /><div id="suggestBox"></div></div>
             <div class="bottom-controls">
                 <button id="drawBtn" class="btn draw-btn" onclick="toggleDrawMode()">⛶ Draw Frame</button>
-                <button id="radarBtn" class="btn" style="background:var(--panel); color:var(--accent); border:1px solid var(--border);" onclick="toggleLiveRadar()">📡 Live Radar</button>
+                <div style="display:inline-block; border:1px solid #ffea00; border-radius:4px; overflow:hidden; vertical-align:middle;">
+                    <select id="radarFilter" style="background:#111; color:#ffea00; border:none; padding:8px; font-family:monospace; outline:none; cursor:pointer;" onchange="if(radarActive){fetchLiveRadar();}">
+                        <option value="air">✈️ Air (ADS-B)</option>
+                        <option value="sea">🚢 Sea (AIS)</option>
+                        <option value="rail">🚆 Rail (GPS)</option>
+                    </select>
+                    <button id="radarBtn" class="btn" style="background:var(--panel); color:var(--accent); border:none; border-left:1px solid #ffea00; border-radius:0;" onclick="toggleLiveRadar()">📡 LIVE RADAR</button>
+                </div>
+                
+                <span style="border-left:1px solid #333; margin:0 10px;"></span>
+                
                 <select id="scanFilter" style="background:#111; color:var(--accent); border:1px solid var(--border); border-radius:4px; padding:8px; font-family:monospace;">
-                    <option value="maritime">Maritime (Ships)</option>
-                    <option value="aviation">Aviation (Planes)</option>
-                    <option value="energy">Energy (Thermal)</option>
+                    <option value="maritime">Micro: Maritime</option>
+                    <option value="aviation">Micro: Aviation</option>
+                    <option value="energy">Micro: Energy</option>
                 </select>
-                <button id="scanBtn" class="btn" onclick="executeScan()">⚡ MICRO SCAN</button>
+                <button id="scanBtn" class="btn" onclick="executeScan()">⚡ SCAN</button>
             </div>
             <button class="btn btn-macro" id="macroBtn" onclick="executeMacroOSINT()">MACRO OSINT</button>
             <button class="btn btn-reset" onclick="resetView()">RESET</button>
@@ -330,6 +340,21 @@
 
         async function fetchLiveRadar() {
             if (!radarActive) return;
+            const filter = document.getElementById("radarFilter").value;
+            
+            if (filter === "sea") {
+                radarMarkers.forEach(m => map.removeLayer(m));
+                radarMarkers = [];
+                logIntel("[RADAR] 🚢 SEA (AIS) Access Denied. Commercial satellite AIS providers (Spire/MarineTraffic) require paid API keys. No free global feed exists.", "error");
+                return;
+            }
+            if (filter === "rail") {
+                radarMarkers.forEach(m => map.removeLayer(m));
+                radarMarkers = [];
+                logIntel("[RADAR] 🚆 RAIL Access Denied. National rail networks do not broadcast free global GPS transponders like aviation does.", "error");
+                return;
+            }
+
             const bounds = map.getBounds();
             // OpenSky bounding box: lamin, lomin, lamax, lomax
             const lamin = bounds.getSouth(), lomin = bounds.getWest();
