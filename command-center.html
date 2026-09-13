@@ -393,7 +393,8 @@
                 activePlanes = {};
             }
             
-            const bounds = map.getBounds();
+            // Expand the scan area by 150% so tightly zoomed users can see approaching aircraft off-screen
+            const bounds = map.getBounds().pad(1.5);
             let lamin = bounds.getSouth(), lomin = bounds.getWest();
             let lamax = bounds.getNorth(), lomax = bounds.getEast();
             
