@@ -111,18 +111,21 @@
     <div class="scanline"></div>
 
     <!-- AI Chatbot UI -->
-    <div id="aiChatWindow" style="position:fixed; bottom:20px; right:20px; width:340px; background:var(--panel-2); border:1px solid var(--accent); border-radius:10px; z-index:10000; display:flex; flex-direction:column; box-shadow:0 8px 32px rgba(0,0,0,0.6);">
-        <div style="background:var(--accent); color:var(--on-accent); padding:10px; font-weight:bold; border-top-left-radius:9px; border-top-right-radius:9px; display:flex; justify-content:space-between; cursor:pointer;" onclick="toggleChat()">
-            <span>🤖 AI Security Assistant</span>
+    <div id="aiChatWindow" style="position:fixed; bottom:30px; right:30px; width:380px; background:rgba(9,9,11,0.95); border:1px solid var(--accent); border-radius:4px; z-index:10000; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,255,204,0.15); backdrop-filter:blur(8px); font-family:ui-monospace, SFMono-Regular, Consolas, monospace;">
+        <div style="background:rgba(20,184,166,0.15); color:var(--accent-hi); padding:12px; font-weight:bold; display:flex; justify-content:space-between; cursor:pointer; border-bottom:1px solid var(--accent); font-size:0.85em; letter-spacing:0.05em; text-transform:uppercase;" onclick="toggleChat()">
+            <span><span class="live-dot" style="margin-right:6px;"></span>OSINT-AI UPLINK</span>
             <span id="chatToggleBtn">_</span>
         </div>
         <div id="chatBody" style="display:flex; flex-direction:column;">
-            <div id="chatHistory" style="height:250px; overflow-y:auto; padding:10px; font-size:0.85em; color:var(--text); display:flex; flex-direction:column; gap:8px;">
-                <div style="background:rgba(20,184,166,0.1); border-left:3px solid var(--accent); padding:8px; border-radius:4px;">Hello. I am the AI construct for this project. How can I assist you in understanding this architecture?</div>
+            <div id="chatHistory" style="height:320px; overflow-y:auto; padding:15px; font-size:0.82em; color:var(--text); display:flex; flex-direction:column; gap:12px;">
+                <div style="align-self:flex-start; background:rgba(20,184,166,0.08); border:1px solid var(--accent); padding:10px; border-radius:2px; max-width:90%; color:var(--text); line-height:1.5;">
+                    <strong style="color:var(--accent-hi); display:block; margin-bottom:4px; font-size:0.9em;">SYSTEM:</strong>
+                    Direct uplink established to Overwatch architecture framework. Awaiting operator query...
+                </div>
             </div>
-            <div style="display:flex; border-top:1px solid var(--border);">
-                <input type="text" id="chatInput" placeholder="Ask about this project..." style="flex:1; border:none; border-radius:0; border-bottom-left-radius:9px; background:var(--panel);" onkeypress="if(event.key==='Enter') sendChat()">
-                <button onclick="sendChat()" style="background:var(--accent); color:var(--on-accent); border:none; padding:0 15px; border-bottom-right-radius:9px; font-weight:bold; cursor:pointer;">▶</button>
+            <div style="display:flex; border-top:1px solid var(--border); background:rgba(0,0,0,0.5);">
+                <input type="text" id="chatInput" placeholder="> Type query..." style="flex:1; border:none; border-radius:0; background:transparent; padding:12px 15px; color:var(--text); font-family:inherit; font-size:0.85em; outline:none;" onkeypress="if(event.key==='Enter') sendChat()">
+                <button onclick="sendChat()" style="background:transparent; color:var(--accent); border:none; border-left:1px solid var(--border); padding:0 18px; font-weight:bold; cursor:pointer; transition:background 0.2s;">[ SEND ]</button>
             </div>
         </div>
     </div>
@@ -142,11 +145,13 @@
             if(!msg) return;
             
             input.value = '';
-            history.innerHTML += `<div style="align-self:flex-end; background:var(--border); padding:8px; border-radius:4px; max-width:85%;">${msg}</div>`;
+            history.innerHTML += `<div style="align-self:flex-end; background:rgba(255,255,255,0.05); border:1px solid var(--border); padding:10px; border-radius:2px; max-width:90%; color:var(--text-2);">
+                <strong style="color:#a1a1aa; display:block; margin-bottom:4px; font-size:0.9em;">OPERATOR:</strong>${msg}
+            </div>`;
             history.scrollTop = history.scrollHeight;
             
             const loadingId = "load-" + Date.now();
-            history.innerHTML += `<div id="${loadingId}" style="align-self:flex-start; color:var(--accent); font-style:italic; font-size:0.9em;">Analyzing...</div>`;
+            history.innerHTML += `<div id="${loadingId}" style="align-self:flex-start; color:var(--accent); font-style:italic; font-size:0.8em; margin-top:4px;">[📡 decrypting signal...]</div>`;
             history.scrollTop = history.scrollHeight;
 
             try {
@@ -158,15 +163,19 @@
                 const data = await res.json();
                 document.getElementById(loadingId).remove();
                 if(res.status === 429) {
-                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(239,68,68,0.1); border-left:3px solid var(--danger); padding:8px; border-radius:4px; max-width:85%; color:var(--danger);">${data.error}</div>`;
+                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(239,68,68,0.08); border:1px solid var(--danger); padding:10px; border-radius:2px; max-width:90%; color:var(--danger);">
+                        <strong style="color:var(--danger); display:block; margin-bottom:4px; font-size:0.9em;">ERR 429:</strong>${data.error}
+                    </div>`;
                 } else if(data.reply) {
-                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(20,184,166,0.1); border-left:3px solid var(--accent); padding:8px; border-radius:4px; max-width:85%;">${data.reply}</div>`;
+                    history.innerHTML += `<div style="align-self:flex-start; background:rgba(20,184,166,0.08); border:1px solid var(--accent); padding:10px; border-radius:2px; max-width:90%; color:var(--text); line-height:1.5;">
+                        <strong style="color:var(--accent-hi); display:block; margin-bottom:4px; font-size:0.9em;">AI CONSTRUCT:</strong>${data.reply.replace(/\\n/g, '<br>')}
+                    </div>`;
                 } else {
-                    history.innerHTML += `<div style="align-self:flex-start; color:var(--danger);">Connection failed.</div>`;
+                    history.innerHTML += `<div style="align-self:flex-start; color:var(--danger); font-size:0.9em;">[!] Signal lost.</div>`;
                 }
             } catch (e) {
                 document.getElementById(loadingId).remove();
-                history.innerHTML += `<div style="align-self:flex-start; color:var(--danger);">Error reaching AI.</div>`;
+                history.innerHTML += `<div style="align-self:flex-start; color:var(--danger); font-size:0.9em;">[!] Neural link offline.</div>`;
             }
             history.scrollTop = history.scrollHeight;
         }
