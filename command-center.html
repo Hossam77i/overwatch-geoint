@@ -481,6 +481,7 @@
             states.forEach(state => {
                 const icao = state[0];
                 const callsign = (state[1] || "UNKNOWN").trim();
+                const originCountry = (state[2] || "UNKNOWN").replace(/'/g, "");
                 const lon = state[5], lat = state[6];
                 
                 if (lon && lat) {
@@ -499,7 +500,7 @@
                                 <div><span style="color:#666;">SPD:</span> ${(vel * 3.6).toFixed(0)} km/h</div>
                                 <div><span style="color:#666;">HDG:</span> ${(track || 0).toFixed(1)}°</div>
                             </div>
-                            <button onclick="showAirplaneProfile('${icao}', '${callsign}', ${alt}, ${vel}, ${track})" style="width:100%; background:var(--info); color:#000; font-weight:bold; border:none; padding:6px; cursor:pointer; font-size:10px; border-radius:4px; text-transform:uppercase;">VIEW TACTICAL PROFILE</button>
+                            <button onclick="showAirplaneProfile('${icao}', '${callsign}', ${alt}, ${vel}, ${track}, '${originCountry}', ${lat}, ${lon})" style="width:100%; background:var(--info); color:#000; font-weight:bold; border:none; padding:6px; cursor:pointer; font-size:10px; border-radius:4px; text-transform:uppercase;">VIEW TACTICAL PROFILE</button>
                         </div>
                     `;
                     
@@ -1306,7 +1307,7 @@
             }
         }
 
-        async function showAirplaneProfile(icao, callsign, alt, vel, track) {
+        async function showAirplaneProfile(icao, callsign, alt, vel, track, originCountry, lat, lon) {
             document.getElementById('airplaneModal').style.display = 'block';
             const content = document.getElementById('airplaneContent');
             content.innerHTML = `<div style="text-align:center; color:var(--info); font-family:monospace; margin: 20px 0;">Establishing secure SATCOM link to aviation database...<br><span style="font-size:0.8em; color:var(--text-2);">Retrieving visual signature for Hex ${icao.toUpperCase()}</span></div>`;
@@ -1336,6 +1337,17 @@
                         <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">HEX TRANSPONDER</div>
                         <div style="color:var(--text); font-size:16px;">${icao.toUpperCase()}</div>
                     </div>
+                    
+                    <div style="background:var(--panel); padding:10px; border:1px solid var(--border); border-radius:6px; box-shadow:inset 0 0 10px rgba(0,0,0,0.5); grid-column:span 2;">
+                        <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">NATIONAL REGISTRY (ORIGIN)</div>
+                        <div style="color:var(--text); font-size:14px; text-transform:uppercase;">${originCountry}</div>
+                    </div>
+                    
+                    <div style="background:var(--panel); padding:10px; border:1px solid var(--border); border-radius:6px; box-shadow:inset 0 0 10px rgba(0,0,0,0.5); grid-column:span 2; border-left: 3px solid var(--danger);">
+                        <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">DESTINATION TARGET</div>
+                        <div style="color:var(--danger); font-size:12px; font-weight:bold;">[CLASSIFIED / UNAVAILABLE IN RAW TELEMETRY]</div>
+                    </div>
+
                     <div style="background:var(--panel); padding:10px; border:1px solid var(--border); border-radius:6px; box-shadow:inset 0 0 10px rgba(0,0,0,0.5);">
                         <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">CRUISING ALTITUDE</div>
                         <div style="color:var(--warn); font-size:16px;">${(alt).toFixed(0)} m</div>
@@ -1344,12 +1356,16 @@
                         <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">TRUE VELOCITY</div>
                         <div style="color:var(--warn); font-size:16px;">${(vel * 3.6).toFixed(0)} km/h</div>
                     </div>
+                    
                     <div style="background:var(--panel); padding:10px; border:1px solid var(--border); border-radius:6px; box-shadow:inset 0 0 10px rgba(0,0,0,0.5); grid-column:span 2; display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">CURRENT HEADING</div>
-                            <div style="color:var(--text); font-size:16px;">${track.toFixed(1)}°</div>
+                            <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">GPS COORDINATES (HIGH PRECISION)</div>
+                            <div style="color:var(--text); font-size:14px;">${lat.toFixed(6)}, ${lon.toFixed(6)}</div>
                         </div>
-                        <div style="color:var(--success); font-weight:bold; font-size:18px; transform: rotate(${track}deg);">✈</div>
+                        <div style="text-align:right;">
+                            <div style="color:var(--text-2); font-size:10px; margin-bottom:4px; letter-spacing:1px;">HEADING</div>
+                            <div style="color:var(--success); font-weight:bold; font-size:18px;">${track.toFixed(1)}° <span style="display:inline-block; transform: rotate(${track}deg);">✈</span></div>
+                        </div>
                     </div>
                 </div>
                 <button onclick="document.getElementById('airplaneModal').style.display='none'" style="width:100%; margin-top:15px; background:var(--info); color:#000; border:none; padding:10px; cursor:pointer; font-weight:bold; border-radius:6px; font-family:monospace; letter-spacing:1px;">CLOSE TACTICAL PROFILE</button>
