@@ -37,10 +37,10 @@ def _refresh_country(c, timeout=10):
         for i, (s, w, n, e) in enumerate([(50, 28, 62, 46), (66, 30, 70, 44), (42, 128, 47, 138)]):
             g = f"({s},{w},{n},{e})"
             for cat, f in filt.items():
-                queries[f"{cat}#R{i}"] = f"[out:json][timeout:25];{f.format(g=g)};out center;"
+                queries[f"{cat}#R{i}"] = f"[out:json][timeout:60];{f.format(g=g)};out center;"
     else:
         for cat, f in filt.items():
-            queries[cat] = f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;{f.format(g="(area.a)")};out center;'
+            queries[cat] = f'[out:json][timeout:60];area["ISO3166-1"="{iso}"]->.a;{f.format(g="(area.a)")};out center;'
     assets = []
     table = boto3.resource('dynamodb', region_name='us-east-1').Table('overwatch-infra-cache')
     for idx, (key, q) in enumerate(queries.items()):
@@ -310,10 +310,10 @@ def handler(event, context):
             done, errors = {}, {}
             for c in countries:
                 try:
-                    done[c] = _refresh_country(c, timeout=25 if c == 'RUSSIA' else 10)
+                    done[c] = _refresh_country(c, timeout=60)
                 except Exception as e:
                     errors[c] = str(e)[:120]
-                time.sleep(3)
+                time.sleep(1)
             return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"},
                 "body": json.dumps({"refreshed": True, "done": done, "errors": errors})}
         except Exception as e:
