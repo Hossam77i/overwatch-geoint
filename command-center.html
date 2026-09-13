@@ -689,8 +689,8 @@
         function infraMerged() {
             const seen = new Set(), out = [];
             [...(window._infraDB || []), ...(window._infraStatic || [])].forEach(a => {
-                const k = (a.n || '').toLowerCase();
-                if (k && !seen.has(k)) { seen.add(k); out.push(a); }
+                const k = (a.n || '').toLowerCase() + '_' + a.lat + '_' + a.lon;
+                if (!seen.has(k)) { seen.add(k); out.push(a); }
             });
             return out;
         }
