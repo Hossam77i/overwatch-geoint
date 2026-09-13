@@ -429,12 +429,24 @@ def handler(event, context):
                 "body": json.dumps({"status": "error", "message": str(e)})
             }
 
+    # Clamp max scan area to 2.0 degrees to prevent ArcGIS tile stitching timeouts
+    width_deg = min(2.0, width_deg)
+    height_deg = min(2.0, height_deg)
+    west = lon - (width_deg / 2)
+    east = lon + (width_deg / 2)
+    south = lat - (height_deg / 2)
+    north = lat + (height_deg / 2)
+
     # Fetch dynamically rendered satellite composite perfectly centered on target (200% scale)
     url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size=2048,2048&f=image"
     
     img_path = "/tmp/target.jpg"
-    response = requests.get(url)
-    with open(img_path, 'wb') as f: f.write(response.content)
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        with open(img_path, 'wb') as f: f.write(response.content)
+    except Exception as e:
+        raise ValueError(f"Satellite Imagery Feed Degraded (Timeout/Error): {str(e)}")
 
     img = cv2.imread(img_path)
     if img is None:
