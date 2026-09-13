@@ -26,10 +26,10 @@ def _refresh_country(c, timeout=10):
     """Fetch 4 OSM categories for one country with rate-limit guards. Returns asset count."""
     iso = INFRA_COUNTRIES.get(c, 'EG')
     filt = {
-        'Aviation': '(node["aeroway"~"aerodrome|helipad|terminal"]{g};way["aeroway"~"aerodrome|helipad|terminal"]{g};relation["aeroway"~"aerodrome|helipad|terminal"]{g};way["military"="airfield"]{g};)',
-        'Energy': '(node["power"="plant"]{g};way["power"="plant"]{g};)',
-        'Maritime': '(node["industrial"="port"]{g};way["industrial"="port"]{g};node["seamark:type"="harbour"]{g};)',
-        'Military': '(node["military"]{g};way["military"]{g};node["landuse"="military"]{g};way["landuse"="military"]{g};)',
+        'Aviation': '(nwr["aeroway"~"aerodrome|helipad|terminal|runway"]{g};nwr["military"="airfield"]{g};nwr["building"="hangar"]{g};)',
+        'Energy': '(nwr["power"~"plant|substation|generator"]{g};nwr["generator:source"]{g};nwr["building"~"power|transformer"]{g};)',
+        'Maritime': '(nwr["industrial"="port"]{g};nwr["seamark:type"~"harbour|pier|dock"]{g};nwr["landuse"="port"]{g};nwr["waterway"~"dock|boatyard"]{g};nwr["man_made"~"pier|breakwater"]{g};)',
+        'Military': '(nwr["military"]{g};nwr["landuse"="military"]{g};nwr["amenity"="military"]{g};nwr["building"="military"]{g};)',
     }
     queries = {}
     if c == 'RUSSIA':
@@ -37,10 +37,10 @@ def _refresh_country(c, timeout=10):
         for i, (s, w, n, e) in enumerate([(50, 28, 62, 46), (66, 30, 70, 44), (42, 128, 47, 138)]):
             g = f"({s},{w},{n},{e})"
             for cat, f in filt.items():
-                queries[f"{cat}#R{i}"] = f"[out:json][timeout:25];{f.format(g=g)};out center 60;"
+                queries[f"{cat}#R{i}"] = f"[out:json][timeout:25];{f.format(g=g)};out center;"
     else:
         for cat, f in filt.items():
-            queries[cat] = f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;{f.format(g="(area.a)")};out center 80;'
+            queries[cat] = f'[out:json][timeout:25];area["ISO3166-1"="{iso}"]->.a;{f.format(g="(area.a)")};out center;'
     assets = []
     table = boto3.resource('dynamodb', region_name='us-east-1').Table('overwatch-infra-cache')
     for idx, (key, q) in enumerate(queries.items()):
@@ -56,7 +56,7 @@ def _refresh_country(c, timeout=10):
             except Exception:
                 time.sleep(2)
                 continue
-        for e in el[:500]:
+        for e in el[:1500]:
             tags = e.get('tags', {})
             nm = tags.get('name') or tags.get('operator') or f"Unnamed {cat} site"
             la, lo = e.get('lat'), e.get('lon')
@@ -66,12 +66,12 @@ def _refresh_country(c, timeout=10):
         time.sleep(2)  # rate-limit guard: never hammer Overpass
         if idx % 2 == 1:  # checkpoint: a timeout kill never loses collected progress
             try:
-                table.put_item(Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:1000])})
+                table.put_item(Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:2500])})
             except Exception:
                 pass
     table.put_item(
-        Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:1000])})
-    return len(assets[:1000])
+        Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:2500])})
+    return len(assets[:2500])
 
 def _nms_centers(items, min_dist=12):
     """Greedy NMS by center distance. items: (rect, cx, cy, score, ...). Highest score wins."""
