@@ -453,7 +453,11 @@ def handler(event, context):
         response.raise_for_status()
         with open(img_path, 'wb') as f: f.write(response.content)
     except Exception as e:
-        raise ValueError(f"Satellite Imagery Feed Degraded (Timeout/Error): {str(e)}")
+        return {
+            "statusCode": 500,
+            "headers": {"Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"status": "error", "message": f"Satellite Imagery Feed Degraded: {str(e)}"})
+        }
 
     img = cv2.imread(img_path)
     if img is None:
