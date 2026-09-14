@@ -625,13 +625,15 @@
         let markerClusters = null;
 
         function logIntel(msg, type="info") {
-            const feed = document.getElementById("macro-intel-feed");
-            const d = new Date().toLocaleTimeString('en-GB');
-            const color = type === "error" ? "#ef4444" : (type === "success" ? "#10b981" : "#94a3b8");
             const div = document.createElement("div");
-            div.className = "intel-entry fresh";
-            div.innerHTML = `<span style="color:var(--text-2)">[${d}]</span> <span style="color:${color}">${msg}</span>`;
-            feed.insertBefore(div, feed.firstChild);
+            div.className = `log-entry fresh ${type}`;
+            const t = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            div.innerHTML = `<span class="log-time">[${t}]</span>> ${msg}`;
+            const feed = document.getElementById("logs");
+            feed.prepend(div);
+            while (feed.children.length > 80) feed.removeChild(feed.lastChild);
+            const cc = document.getElementById("logCount");
+            if (cc) cc.textContent = feed.children.length;
             setTimeout(() => div.classList.remove("fresh"), 1300);
         }
 
