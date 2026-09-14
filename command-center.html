@@ -940,10 +940,10 @@
                 
                 let areaSize = (n - s) * (e - w);
                 let nodeQueries = "";
-                if (document.getElementById('layer-military').checked) nodeQueries += `nwr["military"="base"];`;
-                if (document.getElementById('layer-energy').checked) nodeQueries += `nwr["power"="plant"];`;
-                if (document.getElementById('layer-aviation').checked) nodeQueries += `nwr["aeroway"="aerodrome"];`;
-                if (document.getElementById('layer-roads').checked) nodeQueries += `way["highway"="motorway"];`;
+                if (document.getElementById('layer-military').checked) nodeQueries += `nwr["military"](area.searchArea);nwr["landuse"="military"](area.searchArea);`;
+                if (document.getElementById('layer-energy').checked) nodeQueries += `nwr["power"~"plant|substation|generator"](area.searchArea);`;
+                if (document.getElementById('layer-aviation').checked) nodeQueries += `nwr["aeroway"~"aerodrome|helipad|terminal|runway"](area.searchArea);nwr["military"="airfield"](area.searchArea);`;
+                if (document.getElementById('layer-roads').checked) nodeQueries += `way["highway"="motorway"](area.searchArea);`;
 
                 if (nodeQueries === "") { btn.disabled = false; return; }
 
@@ -951,14 +951,18 @@
                 
                 let overpassQuery = "";
                 if (areaSize > 15) {
-                    // Increased search radius from 40km to 300km to uncover vastly more strategic nodes 
-                    // without triggering Overpass API planetary memory limits.
-                    let radialQueries = nodeQueries.replace(/\]/g, `](around:300000,${currentTarget.lat},${currentTarget.lon})`);
-                    overpassQuery = `[out:json][timeout:25];(${radialQueries});out center;>;out skel qt;`;
+                    let radialQueries = "";
+                    if (document.getElementById('layer-military').checked) radialQueries += `nwr["military"](around:300000,${currentTarget.lat},${currentTarget.lon});nwr["landuse"="military"](around:300000,${currentTarget.lat},${currentTarget.lon});`;
+                    if (document.getElementById('layer-energy').checked) radialQueries += `nwr["power"~"plant|substation|generator"](around:300000,${currentTarget.lat},${currentTarget.lon});`;
+                    if (document.getElementById('layer-aviation').checked) radialQueries += `nwr["aeroway"~"aerodrome|helipad|terminal|runway"](around:300000,${currentTarget.lat},${currentTarget.lon});nwr["military"="airfield"](around:300000,${currentTarget.lat},${currentTarget.lon});`;
+                    overpassQuery = `[out:json][timeout:25];(${radialQueries});out center 150;`;
                 } else {
                     const bboxStr = `${s},${w},${n},${e}`;
-                    let bboxQueries = nodeQueries.replace(/\]/g, `]`);
-                    overpassQuery = `[out:json][timeout:25][bbox:${bboxStr}];(${bboxQueries});out center;>;out skel qt;`;
+                    let bboxQueries = "";
+                    if (document.getElementById('layer-military').checked) bboxQueries += `nwr["military"](${bboxStr});nwr["landuse"="military"](${bboxStr});`;
+                    if (document.getElementById('layer-energy').checked) bboxQueries += `nwr["power"~"plant|substation|generator"](${bboxStr});`;
+                    if (document.getElementById('layer-aviation').checked) bboxQueries += `nwr["aeroway"~"aerodrome|helipad|terminal|runway"](${bboxStr});nwr["military"="airfield"](${bboxStr});`;
+                    overpassQuery = `[out:json][timeout:25];(${bboxQueries});out center 150;`;
                 }
 
                 try {
