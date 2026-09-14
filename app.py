@@ -257,7 +257,7 @@ def _aviation_detect(detail1600, gray_d, air_mask):
     return n, [(k[0], k[1], k[2], k[3]) for k in kept], round(conf, 1)
 
 
-def handler(event, context):
+def _handler(event, context):
     if event.get('httpMethod') == 'OPTIONS':
         return {"statusCode": 200, "headers": {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "*", "Access-Control-Allow-Headers": "*"}, "body": ""}
         
@@ -692,3 +692,14 @@ def handler(event, context):
             "filter": scan_filter
         })
     }
+
+def handler(event, context):
+    try:
+        return _handler(event, context)
+    except Exception as e:
+        import traceback
+        return {
+            "statusCode": 500,
+            "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"},
+            "body": json.dumps({"status": "error", "error": str(e), "traceback": traceback.format_exc()})
+        }
