@@ -22,11 +22,11 @@
   </p>
   
   <p>
-    <a href="#-architecture">Architecture</a> •
-    <a href="#-features">Features</a> •
-    <a href="#%EF%B8%8F-quick-start">Quick Start</a> •
-    <a href="#-devsecops-workflow">DevSecOps</a> •
-    <a href="#-contributing">Contributing</a>
+    <a href="#architecture">Architecture</a> •
+    <a href="#features">Features</a> •
+    <a href="#quick-start">Quick Start</a> •
+    <a href="#devsecops-workflow">DevSecOps</a> •
+    <a href="#contributing">Contributing</a>
   </p>
 </div>
 
