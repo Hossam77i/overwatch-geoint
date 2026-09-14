@@ -26,9 +26,9 @@ def _refresh_country(c, timeout=10):
     """Fetch 4 OSM categories for one country with rate-limit guards. Returns asset count."""
     iso = INFRA_COUNTRIES.get(c, 'EG')
     filt = {
-        'Aviation': '(nwr["aeroway"~"aerodrome|helipad|terminal|runway"]{g};nwr["military"="airfield"]{g};)',
-        'Energy': '(nwr["power"~"plant|substation|generator"]{g};nwr["power"="station"]{g};)',
-        'Maritime': '(nwr["industrial"="port"]{g};nwr["seamark:type"~"harbour|pier|dock"]{g};nwr["landuse"="port"]{g};nwr["man_made"="pier"]{g};)',
+        'Aviation': '(nwr["aeroway"="aerodrome"]["iata"]{g};nwr["aeroway"="aerodrome"]["icao"]{g};nwr["military"~"airfield|air_base"]{g};)',
+        'Energy': '(nwr["power"~"plant|generator"]{g};nwr["power"="station"]{g};)',
+        'Maritime': '(nwr["industrial"="port"]{g};nwr["seamark:type"~"harbour|dock"]{g};nwr["landuse"="port"]{g};nwr["man_made"="pier"]["seamark:type"]{g};)',
         'Military': '(nwr["military"~"base|barracks|bunker"]{g};nwr["landuse"="military"]{g};)',
     }
     queries = {}
