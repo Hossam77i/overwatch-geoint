@@ -22,10 +22,10 @@
   </p>
   
   <p>
-    <a href="#architecture">Architecture</a> •
-    <a href="#features">Features</a> •
-    <a href="#quick-start">Quick Start</a> •
-    <a href="#devsecops-workflow">DevSecOps</a> •
+    <a href="#architecture">Architecture</a> 
+    <a href="#features">Features</a> 
+    <a href="#quick-start">Quick Start</a> 
+    <a href="#devsecops-workflow">DevSecOps</a> 
     <a href="#contributing">Contributing</a>
   </p>
 </div>
@@ -38,7 +38,7 @@
 
 Built strictly on **Serverless AWS** principles, it bridges the gap between heavy computer vision workloads and ephemeral serverless compute functions.
 
-## 🏗 Architecture
+##  Architecture
 
 The system utilizes an advanced event-driven architecture defined via Terraform Infrastructure-as-Code (IaC).
 
