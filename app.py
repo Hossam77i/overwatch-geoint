@@ -352,6 +352,7 @@ def _handler(event, context):
         height_deg = float(body.get('height_deg', 0.05))
     except Exception as e:
         lat, lon = 30.5852, 32.3503
+        scan_filter = body.get('filter', 'maritime') if isinstance(body.get('filter'), str) else 'maritime'
         width_deg, height_deg = 0.05, 0.05
 
     # Define a tactical bounding box (e.g. dynamic user frame or ~22km)
