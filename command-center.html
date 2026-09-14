@@ -7,6 +7,9 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
     <style>
         :root {
@@ -106,6 +109,20 @@
         /* Calm static texture only — no animation, no flicker */
         .grid-overlay { display: none; }
         .scanline { display: none; }
+        /* Custom MarkerCluster Styling for OSINT Theme */
+        .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--accent-hi);
+            color: var(--accent-hi);
+            font-family: monospace;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(45, 212, 191, 0.5);
+            border-radius: 50%;
+        }
+        .marker-cluster div {
+            background-color: rgba(45, 212, 191, 0.2);
+            color: var(--text);
+        }
     </style>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -605,22 +622,27 @@
             {lat: 28.8200, lon: 50.8800, type: "Energy Plant", name: "Bushehr Nuclear Power Plant"}
         ];
 
+        let overlays = [];
+        let markerClusters = null;
+
         function logIntel(msg, type="info") {
+            const feed = document.getElementById("macro-intel-feed");
+            const d = new Date().toLocaleTimeString('en-GB');
+            const color = type === "error" ? "#ef4444" : (type === "success" ? "#10b981" : "#94a3b8");
             const div = document.createElement("div");
-            div.className = `log-entry fresh ${type}`;
-            const t = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            div.innerHTML = `<span class="log-time">[${t}]</span>> ${msg}`;
-            const feed = document.getElementById("logs");
-            feed.prepend(div);
-            while (feed.children.length > 80) feed.removeChild(feed.lastChild);
-            const cc = document.getElementById("logCount");
-            if (cc) cc.textContent = feed.children.length;
+            div.className = "intel-entry fresh";
+            div.innerHTML = `<span style="color:var(--text-2)">[${d}]</span> <span style="color:${color}">${msg}</span>`;
+            feed.insertBefore(div, feed.firstChild);
             setTimeout(() => div.classList.remove("fresh"), 1300);
         }
 
         function clearOverlays() {
             overlays.forEach(layer => map.removeLayer(layer));
             overlays = [];
+            if (markerClusters) {
+                map.removeLayer(markerClusters);
+                markerClusters = null;
+            }
             if (currentBox) { map.removeLayer(currentBox); currentBox = null; }
         }
 
@@ -1016,7 +1038,18 @@
                                 const popupContent = `<b>${el.name}</b>${generateNodeIntel(el.type, el.name, el.lat, el.lon)}`;
                                 const marker = L.circleMarker([el.lat, el.lon], { 
                                     radius: 7, fillColor: color, color: "#000", weight: 2, opacity: 1, fillOpacity: 0.9 
-                                }).bindPopup(popupContent).addTo(map);
+                                }).bindPopup(popupContent);
+                                
+                                if (!markerClusters) {
+                                    markerClusters = L.markerClusterGroup({
+                                        maxClusterRadius: 40,
+                                        spiderfyOnMaxZoom: true,
+                                        showCoverageOnHover: false,
+                                        zoomToBoundsOnClick: true
+                                    });
+                                    map.addLayer(markerClusters);
+                                }
+                                markerClusters.addLayer(marker);
                                 overlays.push(marker);
                             }
                         }
