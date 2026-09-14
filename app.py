@@ -479,13 +479,23 @@ def _handler(event, context):
                 and int(i.get("timestamp", 0)) >= cutoff
             ]
             visitors.sort(key=lambda x: x["timestamp"], reverse=True)
+            clean_visitors = []
+            for v in visitors[:100]:
+                clean_visitors.append(
+                    {
+                        "id": str(v.get("id", "")),
+                        "timestamp": int(v.get("timestamp", 0)),
+                        "ip": str(v.get("ip", "UNKNOWN")),
+                        "user_agent": str(v.get("user_agent", "UNKNOWN")),
+                    }
+                )
             return {
                 "statusCode": 200,
                 "headers": {
                     "Access-Control-Allow-Origin": "*",
                     "Content-Type": "application/json",
                 },
-                "body": json.dumps(visitors[:100]),  # Return last 100
+                "body": json.dumps(clean_visitors),
             }
         except Exception as e:
             return {
