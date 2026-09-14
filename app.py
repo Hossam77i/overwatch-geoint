@@ -26,10 +26,10 @@ def _refresh_country(c, timeout=10):
     """Fetch 4 OSM categories for one country with rate-limit guards. Returns asset count."""
     iso = INFRA_COUNTRIES.get(c, 'EG')
     filt = {
-        'Aviation': '(nwr["aeroway"~"aerodrome|helipad|terminal|runway"]{g};nwr["military"="airfield"]{g};nwr["building"="hangar"]{g};)',
-        'Energy': '(nwr["power"~"plant|substation|generator"]{g};nwr["generator:source"]{g};nwr["building"~"power|transformer"]{g};)',
-        'Maritime': '(nwr["industrial"="port"]{g};nwr["seamark:type"~"harbour|pier|dock"]{g};nwr["landuse"="port"]{g};nwr["waterway"~"dock|boatyard"]{g};nwr["man_made"~"pier|breakwater"]{g};)',
-        'Military': '(nwr["military"]{g};nwr["landuse"="military"]{g};nwr["amenity"="military"]{g};nwr["building"="military"]{g};)',
+        'Aviation': '(nwr["aeroway"~"aerodrome|helipad|terminal|runway"]{g};nwr["military"="airfield"]{g};)',
+        'Energy': '(nwr["power"~"plant|substation|generator"]{g};nwr["power"="station"]{g};)',
+        'Maritime': '(nwr["industrial"="port"]{g};nwr["seamark:type"~"harbour|pier|dock"]{g};nwr["landuse"="port"]{g};nwr["man_made"="pier"]{g};)',
+        'Military': '(nwr["military"~"base|barracks|bunker"]{g};nwr["landuse"="military"]{g};)',
     }
     queries = {}
     if c == 'RUSSIA':
@@ -56,7 +56,7 @@ def _refresh_country(c, timeout=10):
             except Exception:
                 time.sleep(2)
                 continue
-        for e in el[:1500]:
+        for e in el[:450]:
             tags = e.get('tags', {})
             nm = tags.get('name') or tags.get('operator') or f"Unnamed {cat} site"
             la, lo = e.get('lat'), e.get('lon')
@@ -66,15 +66,15 @@ def _refresh_country(c, timeout=10):
         time.sleep(2)  # rate-limit guard: never hammer Overpass
         if idx % 2 == 1 and len(assets) > 0:  # checkpoint: a timeout kill never loses collected progress
             try:
-                table.put_item(Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:2500])})
+                table.put_item(Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:1800])})
             except Exception:
                 pass
     if len(assets) > 0:
         try:
-            table.put_item(Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:2500])})
+            table.put_item(Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:1800])})
         except Exception:
             pass
-    return len(assets[:2500])
+    return len(assets[:1800])
 
 def _nms_centers(items, min_dist=12):
     """Greedy NMS by center distance. items: (rect, cx, cy, score, ...). Highest score wins."""
