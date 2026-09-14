@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overwatch | Incident Response</title>
+    
+    <style>
+        :root {
+            --bg: #0f1115;
+            --panel: #181b21;
+            --panel-hover: #1e2128;
+            --border: #2c313a;
+            --text-main: #cbd5e1;
+            --text-muted: #64748b;
+            --accent: #14b8a6;
+            --accent-dim: rgba(20, 184, 166, 0.15);
+            --danger: #ef4444;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: Inter, 'Segoe UI', Roboto, Helvetica, sans-serif;
+            padding: 30px;
+            margin: 0;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+            text-transform: uppercase;
+            font-size: 1.4em;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+        }
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.9em;
+            margin-top: -10px;
+            margin-bottom: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background-color: var(--panel);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        th, td {
+            padding: 14px 20px;
+            text-align: left;
+            word-break: break-word;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background-color: var(--bg);
+            color: var(--text-muted);
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+        }
+        td {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr:hover td {
+            background-color: var(--panel-hover);
+        }
+        .ip-col {
+            color: var(--text-main);
+            font-weight: bold;
+        }
+        .geo-col {
+            color: var(--accent);
+        }
+        .ua-col {
+            color: var(--text-muted);
+        }
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+    </style>
+
+</head>
+<body>
+<div class="container">
+    <h1>[CLASSIFIED] Overwatch Incident Response Logs <span class="loading">_</span></h1>
+    <p class="subtitle">Target: Live Global Access Identifiers <br><span style='font-size:0.8em; color:#0a0;'>>> Data retention policy enforced: Showing records from the last 48 hours only. Older records are automatically purged via DynamoDB TTL.</span></p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>TIMESTAMP (UTC)</th>
+                <th>IPv4 / IPv6 SOURCE</th>
+                <th>GEO-LOCATION</th>
+                <th>USER AGENT FINGERPRINT</th>
+            </tr>
+        </thead>
+        <tbody id="logTable">
+            <tr><td colspan="3">Initializing connection to secure enclave...</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        async function fetchLogs() {
+            try {
+                const response = await fetch("https://yyp1jlzcjf.execute-api.us-east-1.amazonaws.com/trigger-overwatch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "get_visitor_logs", secret: "overwatch_admin_77" })
+                });
+                
+                if (response.status === 403) {
+                    document.getElementById('logTable').innerHTML = '<tr><td colspan="3" style="color:red;">ACCESS DENIED.</td></tr>';
+                    return;
+                }
+
+                const data = await response.json();
+                
+                
+                let html = '';
+                for (const log of data) {
+                    const date = new Date(log.timestamp * 1000).toISOString().replace('T', ' ').substring(0, 19);
+                    
+                    // Fetch GeoIP data (using a public free API, caching result in sessionStorage to avoid rate limits)
+                    let geo = sessionStorage.getItem(log.ip);
+                    if (!geo && log.ip !== 'UNKNOWN') {
+                        try {
+                            const res = await fetch(`https://get.geojs.io/v1/ip/geo/${log.ip}.json`);
+                            const geoData = await res.json();
+                            if (geoData.status === 'success') {
+                                geo = `${geoData.city}, ${geoData.country} [${geoData.latitude}, ${geoData.longitude}]`;
+                                sessionStorage.setItem(log.ip, geo);
+                            } else {
+                                geo = "LOCATION UNKNOWN";
+                            }
+                        } catch(e) { geo = "GEOIP FAILED"; }
+                    }
+
+                    html += `<tr>
+                        <td>${date}</td>
+                        <td class="ip-col">${log.ip || 'UNKNOWN'}</td>
+                        <td class="geo-col">${geo || 'RESOLVING...'}</td>
+                        <td class="ua-col">${log.user_agent || 'UNKNOWN'}</td>
+                    </tr>`;
+                }
+
+                
+                if (data.length === 0) {
+                    html = '<tr><td colspan="3">No visitor logs found yet.</td></tr>';
+                }
+                
+                document.getElementById('logTable').innerHTML = html;
+            } catch (e) {
+                document.getElementById('logTable').innerHTML = `<tr><td colspan="3" style="color:red;">ERROR: ${e.message}</td></tr>`;
+            }
+        }
+
+        setTimeout(fetchLogs, 1000);
+        setInterval(fetchLogs, 15000); // refresh every 15s
+    </script>
+</div>
+</body>
+</html>

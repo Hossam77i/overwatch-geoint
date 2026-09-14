@@ -8,7 +8,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
     <style>
@@ -123,7 +127,88 @@
             background-color: rgba(45, 212, 191, 0.2);
             color: var(--text);
         }
+
+        /* --- MOBILE OPTIMIZATION --- */
+        @media (max-width: 768px) {
+            #main { flex-direction: column-reverse !important; height: calc(100vh - 120px) !important; }
+            #sidebar { width: 100% !important; height: 35vh !important; border-right: none !important; border-top: 2px solid var(--accent); }
+            #map { height: 65vh !important; width: 100% !important; }
+            header { flex-direction: column; align-items: stretch; padding: 10px; }
+            #controls { justify-content: center; gap: 8px; }
+            .btn { flex: 1; padding: 8px 10px; font-size: 0.75em; }
+            input, select { flex: 1; min-width: unset; font-size: 0.85em; }
+            #tutorialModal > div { width: 95% !important; padding: 15px !important; }
+            .driver-popover { max-width: 90vw !important; }
+        }
     </style>
+
+
+    <style>
+        /* Tactical Dark Mode Overrides for Driver.js Tutorial Cards */
+        .driver-popover {
+            background-color: #1e2128 !important;
+            border: 1px solid #14b8a6 !important;
+            color: #cbd5e1 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.9) !important;
+            font-family: Inter, 'Segoe UI', Roboto, sans-serif !important;
+        }
+        .driver-popover-title {
+            color: #2dd4bf !important;
+            font-size: 1.2em !important;
+            font-weight: 650 !important;
+            letter-spacing: 0.05em !important;
+            margin-bottom: 8px !important;
+        }
+        .driver-popover-description {
+            color: #94a3b8 !important;
+            font-size: 0.95em !important;
+            line-height: 1.6 !important;
+        }
+        .driver-popover-footer button {
+            background-color: #14b8a6 !important;
+            color: #042f2e !important;
+            text-shadow: none !important;
+            border: none !important;
+            border-radius: 6px !important;
+            font-weight: 650 !important;
+            padding: 6px 12px !important;
+            transition: all 0.2s !important;
+        }
+        .driver-popover-footer button:hover {
+            background-color: #2dd4bf !important;
+        }
+        .driver-popover-close-btn {
+            color: #64748b !important;
+        }
+        .driver-popover-close-btn:hover {
+            color: #ef4444 !important;
+        }
+        .driver-popover-progress-text {
+            color: #14b8a6 !important;
+            font-weight: bold !important;
+        }
+        .driver-popover-arrow {
+            border-color: #14b8a6 !important;
+        }
+
+        /* --- MOBILE OPTIMIZATION --- */
+        @media (max-width: 768px) {
+            #main { flex-direction: column-reverse !important; height: calc(100vh - 120px) !important; }
+            #sidebar { width: 100% !important; height: 35vh !important; border-right: none !important; border-top: 2px solid var(--accent); }
+            #map { height: 65vh !important; width: 100% !important; }
+            header { flex-direction: column; align-items: stretch; padding: 10px; }
+            #controls { justify-content: center; gap: 8px; }
+            .btn { flex: 1; padding: 8px 10px; font-size: 0.75em; }
+            input, select { flex: 1; min-width: unset; font-size: 0.85em; }
+            #tutorialModal > div { width: 95% !important; padding: 15px !important; }
+            .driver-popover { max-width: 90vw !important; }
+        }
+    </style>
+
+</head>
+
+<body>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
@@ -238,6 +323,7 @@
             
             <button class="btn btn-macro" id="macroBtn" onclick="executeMacroOSINT()">MACRO OSINT</button>
             <button class="btn btn-reset" onclick="resetView()">RESET</button>
+            <button class="btn btn-reset" onclick="showTutorial()" style="color:var(--info); border-color:var(--info);">❓ TUTORIAL</button>
         </div>
     </header>
 
@@ -295,7 +381,7 @@
         // FULL-WORLD SATELLITE, EDGE TO EDGE: fractional zoom fitted so the
         // planet exactly fills the panel width. No duplicates, no margins,
         // tiles served at z3 where Esri coverage is complete (no gray gaps).
-        const map = L.map('map', { center: [20.0, 10.0], zoom: 3, backgroundColor: '#000000', zoomControl: false, zoomSnap: 0, zoomDelta: 0.5, maxBounds: [[-90, -180], [90, 180]], maxBoundsViscosity: 0.7 });
+        const map = L.map('map', { preferCanvas: true, center: [20.0, 10.0], zoom: 3, backgroundColor: '#000000', zoomControl: false, zoomSnap: 0, zoomDelta: 0.5, maxBounds: [[-90, -180], [90, 180]], maxBoundsViscosity: 0.7 });
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
         let drawMode = false;
@@ -407,7 +493,7 @@
                     const c_lat = (parseFloat(s) + parseFloat(n)) / 2;
                     const c_lon = (parseFloat(w) + parseFloat(e)) / 2;
 
-                    const res = await fetch(TRIGGER_URL, {
+                    const res = await fetch(TRIGGER_URL, { headers: { "Content-Type": "application/json" },
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
@@ -955,14 +1041,14 @@
                     if (document.getElementById('layer-military').checked) radialQueries += `nwr["military"](around:300000,${currentTarget.lat},${currentTarget.lon});nwr["landuse"="military"](around:300000,${currentTarget.lat},${currentTarget.lon});`;
                     if (document.getElementById('layer-energy').checked) radialQueries += `nwr["power"~"plant|substation|generator"](around:300000,${currentTarget.lat},${currentTarget.lon});`;
                     if (document.getElementById('layer-aviation').checked) radialQueries += `nwr["aeroway"~"aerodrome|helipad|terminal|runway"](around:300000,${currentTarget.lat},${currentTarget.lon});nwr["military"="airfield"](around:300000,${currentTarget.lat},${currentTarget.lon});`;
-                    overpassQuery = `[out:json][timeout:25];(${radialQueries});out center 150;`;
+                    overpassQuery = `[out:json][timeout:25];(${radialQueries});out center 800;`;
                 } else {
                     const bboxStr = `${s},${w},${n},${e}`;
                     let bboxQueries = "";
                     if (document.getElementById('layer-military').checked) bboxQueries += `nwr["military"](${bboxStr});nwr["landuse"="military"](${bboxStr});`;
                     if (document.getElementById('layer-energy').checked) bboxQueries += `nwr["power"~"plant|substation|generator"](${bboxStr});`;
                     if (document.getElementById('layer-aviation').checked) bboxQueries += `nwr["aeroway"~"aerodrome|helipad|terminal|runway"](${bboxStr});nwr["military"="airfield"](${bboxStr});`;
-                    overpassQuery = `[out:json][timeout:25];(${bboxQueries});out center 150;`;
+                    overpassQuery = `[out:json][timeout:25];(${bboxQueries});out center 800;`;
                 }
 
                 try {
@@ -1175,7 +1261,7 @@
                 }
 
                 const startTime = performance.now();
-                const res = await fetch(TRIGGER_URL, { method: "POST", body: JSON.stringify(payload) });
+                const res = await fetch(TRIGGER_URL, { headers: { "Content-Type": "application/json" }, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
                 if (!res.ok) {
                     let errMsg = "HTTP " + res.status;
                     try {
@@ -1262,19 +1348,6 @@
             const country = document.getElementById('countrySelect');
             const sectorFocus = country.options[country.selectedIndex].text;
             const targetId = country.value;
-
-            // Enforce 30-minute global resource cooldown per country
-            const cooldownKey = `overwatch_dossier_cooldown_${targetId}`;
-            const lastExport = localStorage.getItem(cooldownKey);
-            if (lastExport) {
-                const timePassed = Date.now() - parseInt(lastExport);
-                const timeRemaining = (30 * 60 * 1000) - timePassed;
-                if (timeRemaining > 0) {
-                    const minLeft = Math.ceil(timeRemaining / 60000);
-                    logIntel(`[SYSTEM] Resources conserved. A dossier for ${sectorFocus} was recently compiled. Please wait ${minLeft} minutes or review your previous report.`, "warn");
-                    return;
-                }
-            }
 
             logIntel("[DOSSIER] Compiling strategic snapshot to PDF...", "warn");
             const btn = document.getElementById('exportBtn');
@@ -1375,7 +1448,7 @@
                 };
                 
                 await html2pdf().set(opt).from(element).save();
-                localStorage.setItem(cooldownKey, Date.now().toString());
+                
                 logIntel("[DOSSIER] National Strategic Dossier successfully exported.", "success");
             } catch(e) {
                 logIntel(`[DOSSIER] Export failed: ${e.message}`, "error");
@@ -1515,7 +1588,7 @@
 
         async function pollThreats() {
             try {
-                const res = await fetch(TRIGGER_URL, {
+                const res = await fetch(TRIGGER_URL, { headers: { "Content-Type": "application/json" },
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ action: 'get_threats' })
@@ -1590,5 +1663,112 @@
         });
 
     </script>
+
+    
+
+    <script>
+        const driver = window.driver.js.driver;
+        const driverObj = driver({
+            showProgress: true,
+                        steps: [
+                {
+                    popover: { 
+                        title: '🚀 Welcome to Overwatch', 
+                        description: 'This dashboard lets you explore global infrastructure and run live computer vision scans. Let\'s take a quick tour.',
+                        side: "left", align: 'start'
+                    }
+                },
+                {
+                    element: '#countrySelect',
+                    popover: { 
+                        title: '1. Jump to Region', 
+                        description: 'Select a country here to instantly fly the map to a strategic global zone.',
+                        side: "bottom", align: 'start'
+                    }
+                },
+                {
+                    element: '#macroBtn',
+                    popover: { 
+                        title: '2. Load Targets', 
+                        description: 'Click MACRO OSINT to scan your current view for high-value targets (Ports, Airbases, Military Facilities).',
+                        side: "bottom", align: 'start'
+                    }
+                },
+                {
+                    element: '#sidebar',
+                    popover: { 
+                        title: '3. Filter & Lock On', 
+                        description: 'Your targets load here. Click a category to filter them, then click any target to lock your camera onto it.',
+                        side: "right", align: 'start'
+                    }
+                },
+                {
+                    element: '#drawBtn',
+                    popover: { 
+                        title: '4. Custom Scan Area', 
+                        description: 'Want to scan anywhere? Click "Draw Frame", then click and drag on the map to select a custom zone.',
+                        side: "top", align: 'start'
+                    }
+                },
+                {
+                    element: '#scanFilter',
+                    popover: { 
+                        title: '5. Choose AI Algorithm', 
+                        description: 'Select which computer vision model to use for your scan (Aviation, Maritime, Military Armor).',
+                        side: "top", align: 'start'
+                    }
+                },
+                {
+                    element: '#scanBtn',
+                    popover: { 
+                        title: '6. Run the Scan!', 
+                        description: 'Click SCAN. Our AWS backend will analyze the satellite feed and highlight detected assets in real-time.',
+                        side: "top", align: 'start'
+                    }
+                },
+                {
+                    element: '#exportBtn',
+                    popover: { 
+                        title: '7. Download Report', 
+                        description: 'Click DOSSIER to instantly download a tactical intelligence report of your findings.',
+                        side: "top", align: 'start'
+                    }
+                },
+                {
+                    element: '#radarBtn',
+                    popover: { 
+                        title: '8. Live Radar', 
+                        description: 'Toggle this to overlay real-time global flight transponder data directly onto the map.',
+                        side: "top", align: 'start'
+                    }
+                }
+            ]
+        });
+
+        // Change the TUTORIAL button to trigger this driver
+        function showTutorial() {
+            driverObj.drive();
+        }
+
+
+        // Log Visitor Silently
+        setTimeout(() => {
+            fetch("https://yyp1jlzcjf.execute-api.us-east-1.amazonaws.com/trigger-overwatch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "log_visitor" })
+            }).catch(() => {});
+        }, 1500);
+
+        // Show tutorial on first load
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!localStorage.getItem('overwatch_interactive_seen')) {
+                setTimeout(() => driverObj.drive(), 500);
+                localStorage.setItem('overwatch_interactive_seen', 'true');
+            }
+        });
+    </script>
 </body>
+
 </html>

@@ -816,7 +816,7 @@ def _handler(event, context):
             ),
         }
 
-    img = cv2.imread(img_path)
+    print("Before imread"); img = cv2.imread(img_path); print("After imread")
     if img is None:
         img = np.zeros((1600, 1600, 3), dtype=np.uint8)
     else:
@@ -832,7 +832,7 @@ def _handler(event, context):
 
     if scan_filter == "maritime":
         setattr(sys.modules[__name__], "current_width_deg", width_deg)
-        num_ships, ship_boxes, acc, water_cov = _maritime_detect(output_img)
+        print("Before maritime detect"); num_ships, ship_boxes, acc, water_cov = _maritime_detect(output_img); print("After maritime detect")
         # Viz: darken land + true shoreline wrap (same Otsu guard as detector)
         try:
             gray_viz = cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY)

@@ -1,3 +1,11 @@
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+locals {
+  account_id = data.aws_caller_identity.current.account_id
+  region     = data.aws_region.current.name
+}
+
 provider "aws" {
   region = "us-east-1"
 }
@@ -32,7 +40,7 @@ resource "aws_iam_policy" "dynamodb_write" {
     Statement = [{
       Action   = ["dynamodb:PutItem", "dynamodb:Scan"]
       Effect   = "Allow"
-      Resource = "arn:aws:dynamodb:us-east-1:538675137281:table/cloud-resume-threats"
+      Resource = "arn:aws:dynamodb:${local.region}:${local.account_id}:table/cloud-resume-threats"
     }]
   })
 }
@@ -47,9 +55,17 @@ resource "aws_lambda_function" "overwatch_lambda" {
   function_name = "overwatch_geoint_pipeline"
   role          = aws_iam_role.geoint_lambda_role.arn
   package_type  = "Image"
-  image_uri     = "538675137281.dkr.ecr.us-east-1.amazonaws.com/overwatch-geoint:latest"
+  image_uri     = "${local.account_id}.dkr.ecr.${local.region}.amazonaws.com/overwatch-geoint:latest"
   timeout       = 300
   memory_size   = 1024
+  environment {
+    variables = {
+      S3_BUCKET            = aws_s3_bucket.site.bucket
+      DYNAMODB_INFRA_CACHE = aws_dynamodb_table.infra_cache.name
+      DYNAMODB_THREATS     = "cloud-resume-threats"
+      AWS_REGION           = local.region
+    }
+  }
 }
 
 # EventBridge Rule to run every morning at 8:00 AM UTC
@@ -83,15 +99,27 @@ resource "aws_apigatewayv2_api" "geoint_api" {
     allow_headers = ["content-type"]
   }
 }
+
+resource "aws_cloudwatch_log_group" "api_gw" {
+  name              = "/aws/api_gw/${aws_apigatewayv2_api.geoint_api.name}"
+  retention_in_days = 30
+}
+
 resource "aws_apigatewayv2_stage" "default_stage" {
   api_id      = aws_apigatewayv2_api.geoint_api.id
   name        = "$default"
   auto_deploy = true
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gw.arn
+    format          = "{ \"requestId\":\"$context.requestId\", \"ip\": \"$context.identity.sourceIp\", \"requestTime\":\"$context.requestTime\", \"httpMethod\":\"$context.httpMethod\", \"routeKey\":\"$context.routeKey\", \"status\":\"$context.status\", \"protocol\":\"$context.protocol\", \"responseLength\":\"$context.responseLength\" }"
+  }
 }
+
 resource "aws_apigatewayv2_integration" "lambda_integration" {
-  api_id           = aws_apigatewayv2_api.geoint_api.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = aws_lambda_function.overwatch_lambda.invoke_arn
+  api_id             = aws_apigatewayv2_api.geoint_api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = aws_lambda_function.overwatch_lambda.invoke_arn
   integration_method = "POST"
 }
 resource "aws_apigatewayv2_route" "trigger_route" {
@@ -164,4 +192,12 @@ resource "aws_iam_policy" "infra_cache_rw" {
 resource "aws_iam_role_policy_attachment" "lambda_infra_cache" {
   role       = aws_iam_role.geoint_lambda_role.name
   policy_arn = aws_iam_policy.infra_cache_rw.arn
+}
+
+resource "aws_s3_bucket_public_access_block" "hossam_s3_block" {
+  bucket                  = "hossam-cloud-resume-e4b1b23e"
+  block_public_acls       = true
+  block_public_policy     = false
+  ignore_public_acls      = true
+  restrict_public_buckets = false
 }
