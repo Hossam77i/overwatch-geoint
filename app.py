@@ -1,3 +1,4 @@
+import sys
 import os, requests, cv2, numpy as np, boto3, time, uuid, json, math
 
 def deg2num(lat_deg, lon_deg, zoom):
@@ -123,6 +124,10 @@ def _maritime_detect(img1600):
         ek = 3
     else:
         ek = 5
+        
+    scale = 0.05 / max(0.001, getattr(sys.modules[__name__], 'current_width_deg', 0.05))
+    scale2 = scale * scale
+    
     water_eroded = cv2.erode(water_mask, np.ones((ek, ek), np.uint8), iterations=1)
     edges = cv2.Canny(gray, 50, 150)
     water_edges = cv2.bitwise_and(edges, edges, mask=water_eroded)
@@ -143,8 +148,8 @@ def _maritime_detect(img1600):
             sol = cnt_area / hull_area if hull_area > 0 else 1.0
         except Exception:
             sol = 1.0
-        # 50-400m ships at 13.75m/px -> 4-29px long, 1-5px wide, 10-400px²
-        if not (12 < area < 800 and 1.6 < ar < 10.0 and ext > 0.35 and sol > 0.35 and min(w, h) >= 1.8):
+        # Scale-aware dynamic sizing
+        if not ((12*scale2) < area < (800*scale2) and 1.5 < ar < 10.0 and ext > 0.35 and sol > 0.35 and min(w, h) >= (1.5*scale)):
             continue
         x, y, bw, bh = cv2.boundingRect(cnt)
         if x <= 2 or y <= 2 or x + bw >= 1598 or y + bh >= 1598:
@@ -455,6 +460,7 @@ def _handler(event, context):
     av_zoom = False
 
     if scan_filter == 'maritime':
+        setattr(sys.modules[__name__], 'current_width_deg', width_deg)
         num_ships, ship_boxes, acc, water_cov = _maritime_detect(output_img)
         # Viz: darken land + true shoreline wrap (same Otsu guard as detector)
         try:
@@ -588,6 +594,8 @@ def _handler(event, context):
 
     elif scan_filter == 'military':
         try:
+            scale = 0.05 / max(0.001, width_deg)
+            scale2 = scale * scale
             gray = cv2.cvtColor(output_img, cv2.COLOR_BGR2GRAY)
             blur = cv2.GaussianBlur(gray, (5, 5), 0)
             edges = cv2.Canny(blur, 100, 200)
@@ -598,10 +606,10 @@ def _handler(event, context):
             vehicles = []
             for c in cnts:
                 area = cv2.contourArea(c)
-                if 20 < area < 400: 
+                if (15*scale2) < area < (300*scale2): 
                     x, y, w, h = cv2.boundingRect(c)
-                    aspect = max(w, h) / float(min(w, h))
-                    if 1.0 <= aspect <= 3.5:
+                    aspect = max(w, h) / float(max(1e-6, min(w, h)))
+                    if 1.0 <= aspect <= 3.8:
                         vehicles.append((x, y, w, h))
             
             vehicles.sort(key=lambda b: b[2]*b[3], reverse=True)
