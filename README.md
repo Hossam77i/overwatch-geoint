@@ -1,6 +1,6 @@
 <div align="center">
   <img src="https://img.icons8.com/color/144/000000/radar.png" alt="Overwatch Radar" width="100"/>
-  <h1>🌍 Overwatch GEOINT</h1>
+  <h1>Overwatch GEOINT</h1>
   <p><strong>Serverless Geospatial Intelligence & Open Source Intelligence (OSINT) Platform</strong></p>
 
   <p>
@@ -32,7 +32,7 @@
 
 ---
 
-## 📖 Overview
+## Overview
 
 **Overwatch GEOINT** is a highly scalable, event-driven tactical intelligence dashboard. It is capable of parsing global geospatial data in real-time, executing Computer Vision (CV) tracking models against satellite imagery, and maintaining extreme low-latency tracking of global infrastructure without relying on expensive, always-on servers.
 
@@ -55,15 +55,15 @@ graph TD
     Lambda -->|Satellite Feed| ArcGIS[ArcGIS Imagery API]
 ```
 
-## ✨ Features
+##  Features
 
-- 🛰️ **Computer Vision Macros:** Automated OpenCV morphological detection for Maritime, Aviation, and Ground Armor signatures utilizing non-maximum suppression (NMS) algorithms.
-- 📡 **Real-Time Airspace Tracking:** Live ADS-B transponder data streams intercept and track global aviation assets in real-time.
-- ⚡ **100% Serverless:** Pay-per-use architecture running on AWS Lambda, scaling instantly from 0 to 1,000+ concurrent scans.
-- 🔐 **Threat Intelligence Logging:** Rolling 48-hour incident response tracker using DynamoDB Time-To-Live (TTL) and secure GeoIP HTTPS resolution.
-- 🎨 **Tactical UI:** High-performance, Canvas-accelerated Leaflet.js dashboard built for complex geographical rendering without DOM lagging.
+- **Computer Vision Macros:** Automated OpenCV morphological detection for Maritime, Aviation, and Ground Armor signatures utilizing non-maximum suppression (NMS) algorithms.
+- **Real-Time Airspace Tracking:** Live ADS-B transponder data streams intercept and track global aviation assets in real-time.
+- **100% Serverless:** Pay-per-use architecture running on AWS Lambda, scaling instantly from 0 to 1,000+ concurrent scans.
+- **Threat Intelligence Logging:** Rolling 48-hour incident response tracker using DynamoDB Time-To-Live (TTL) and secure GeoIP HTTPS resolution.
+- **Tactical UI:** High-performance, Canvas-accelerated Leaflet.js dashboard built for complex geographical rendering without DOM lagging.
 
-## ⚙️ Quick Start
+## Quick Start
 
 ### Prerequisites
 - [Docker](https://docs.docker.com/get-docker/) & [AWS CLI](https://aws.amazon.com/cli/)
@@ -93,7 +93,7 @@ terraform plan
 terraform apply -auto-approve
 ```
 
-## 🛡️ DevSecOps Workflow
+## DevSecOps Workflow
 
 This repository strictly enforces professional DevSecOps standards via GitHub Actions:
 - **Trivy:** Static container vulnerability scanning against the Lambda ECR image.
@@ -102,10 +102,10 @@ This repository strictly enforces professional DevSecOps standards via GitHub Ac
 - **Pytest:** Mapped and mocked integration testing for CV logic.
 - **Terraform:** Infrastructure configuration and permission boundaries dynamically deployed via CI/CD.
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions from the Open Source Intelligence (OSINT) and DevSecOps community! Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting Pull Requests.
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
