@@ -64,13 +64,16 @@ def _refresh_country(c, timeout=10):
             if la is None: continue
             assets.append({'t': cat, 'n': nm[:80], 'd': (tags.get('operator') or cat)[:60], 's': 'Operational', 'c': 'ib-op', 'lat': round(float(la), 4), 'lon': round(float(lo), 4), 'q': nm[:60], 'k': 'macro'})
         time.sleep(2)  # rate-limit guard: never hammer Overpass
-        if idx % 2 == 1:  # checkpoint: a timeout kill never loses collected progress
+        if idx % 2 == 1 and len(assets) > 0:  # checkpoint: a timeout kill never loses collected progress
             try:
                 table.put_item(Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:2500])})
             except Exception:
                 pass
-    table.put_item(
-        Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:2500])})
+    if len(assets) > 0:
+        try:
+            table.put_item(Item={'country': c, 'updated_at': int(time.time()), 'expires_at': int(time.time()) + 7 * 86400, 'payload': json.dumps(assets[:2500])})
+        except Exception:
+            pass
     return len(assets[:2500])
 
 def _nms_centers(items, min_dist=12):
