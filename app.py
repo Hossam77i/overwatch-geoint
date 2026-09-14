@@ -442,6 +442,7 @@ def _handler(event, context):
                     "ip": ip,
                     "user_agent": ua,
                     "payload": "PAGE_LOAD",
+                    "expires_at": int(time.time()) + 172800,
                 }
             )
             return {
@@ -470,7 +471,13 @@ def _handler(event, context):
             )
             response = table.scan()
             items = response.get("Items", [])
-            visitors = [i for i in items if i["id"].startswith("VISITOR_")]
+            cutoff = int(time.time()) - 172800
+            visitors = [
+                i
+                for i in items
+                if i["id"].startswith("VISITOR_")
+                and int(i.get("timestamp", 0)) >= cutoff
+            ]
             visitors.sort(key=lambda x: x["timestamp"], reverse=True)
             return {
                 "statusCode": 200,
