@@ -1,11 +1,11 @@
 # Stage 1: Build dependencies
-FROM public.ecr.aws/lambda/python:3.11 AS builder
+FROM public.ecr.aws/lambda/python:3.13 AS builder
 
 COPY requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
 # Stage 2: Final runtime image
-FROM public.ecr.aws/lambda/python:3.11
+FROM public.ecr.aws/lambda/python:3.13
 
 # Set environment variables for security and performance
 ENV PYTHONDONTWRITEBYTECODE=1 \
