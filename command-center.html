@@ -210,6 +210,30 @@
 </head>
 
 <body>
+    <div id="debugBox" style="position:fixed;top:10px;right:10px;width:300px;background:rgba(255,0,0,0.8);color:white;z-index:99999;padding:10px;font-family:monospace;font-size:10px;display:none;pointer-events:none;border-radius:5px;"></div>
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            const dbg = document.getElementById('debugBox');
+            dbg.style.display = 'block';
+            dbg.innerHTML += `<b>ERROR:</b> ${msg} <br>Line: ${lineNo}<br><hr>`;
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            const dbg = document.getElementById('debugBox');
+            dbg.style.display = 'block';
+            dbg.innerHTML += `<b>PROMISE REJECTION:</b> ${event.reason} <br><hr>`;
+        });
+        
+        // Also hook console.error
+        const oldErr = console.error;
+        console.error = function() {
+            const dbg = document.getElementById('debugBox');
+            dbg.style.display = 'block';
+            dbg.innerHTML += `<b>CONSOLE ERROR:</b> ${Array.from(arguments).join(' ')} <br><hr>`;
+            oldErr.apply(console, arguments);
+        };
+    </script>
+
 
     <!-- 🔥 GOD'S EYE UI ELEMENTS -->
     

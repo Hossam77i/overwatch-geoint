@@ -56,6 +56,7 @@ function enable3D() {
             
             // 🔥 POWER FEATURE: Dynamic Day/Night Cycle based on real sun position
             viewer.scene.globe.enableLighting = true;
+            viewer.clock.shouldAnimate = true; // FORCE CLOCK TO TICK FOR LIVE TRACKING
             
             // 🔥 GOD'S EYE FEATURE: Cockpit View / Entity Tracking
             viewer.selectedEntityChanged.addEventListener(function(selectedEntity) {
@@ -161,160 +162,9 @@ window.addEventListener('geoint:radar_update', (e) => {
                         }),
                         width: 3,
                         leadTime: 0,
-                        trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000) // Leaves a 60-second trail behind the aircraft
-                    }
-                });
-                cesiumEntities[icao].lastSeen = now;
-                // Add interpolation settings
-                
-            }
-        }
-    });
-
-    // Prune ghosts
-    for (let id in cesiumEntities) {
-        if (now - cesiumEntities[id].lastSeen > 25000) {
-            viewer.entities.remove(cesiumEntities[id]);
-            delete cesiumEntities[id];
-        }
-    }
-});
-
-function syncDataTo3D() {
-    if (!viewer) return;
-    
-    // Sync current center/zoom from Leaflet
-    if (window.map) {
-        const center = window.map.getCenter();
-        const alt = Math.max(10000, 20000000 / Math.pow(2, window.map.getZoom()));
-        
-        viewer.camera.flyTo({
-            destination: Cesium.Cartesian3.fromDegrees(center.lng, center.lat, alt),
-            orientation: { heading: 0.0, pitch: Cesium.Math.toRadians(-60.0), roll: 0.0 },
-            duration: 1.5
-        });
-        
-        // Extract features from Leaflet
-        const features = [];
-        window.map.eachLayer(layer => {
-            if (layer.feature) features.push(layer.feature);
-        });
-        
-        const time = Cesium.JulianDate.now();
-        
-        features.forEach(feature => {
-            const props = feature.properties;
-            const coords = feature.geometry.coordinates;
-            const icao = props.icao;
-            const lon = coords[0];
-            const lat = coords[1];
-            const alt_val = coords[2] || 0;
-            
-            if (lon && lat) {
-                const position = Cesium.Cartesian3.fromDegrees(lon, lat, alt_val);
-                
-                if (icao) { // It's an aircraft
-                    if (!cesiumEntities[icao]) {
-                        const positionProperty = new Cesium.SampledPositionProperty();
-                        positionProperty.addSample(time, position);
-                        
-                        cesiumEntities[icao] = viewer.entities.add({
-                            position: positionProperty,
-                            point: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 },
-                            path: { resolution: 1, material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: Cesium.Color.YELLOW }), width: 3, leadTime: 0, trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000) },
-                            description: `ICAO: ${icao}<br>Flight: ${props.callsign || 'N/A'}`
-                        });
-                    }
-                } else if (props.t) { // It's an OSINT Target
-                    // Generate unique ID based on coords
-                    const osintId = `osint_${lon}_${lat}`;
-                    if (!cesiumEntities[osintId]) {
-                        const ent = viewer.entities.add({
-                            position: position,
-                            polyline: { positions: [position, Cesium.Cartesian3.fromDegrees(lon, lat, 15000)], width: 5, material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.2, color: Cesium.Color.RED.withAlpha(0.6) }) },
-                            label: { text: 'TARGET DETECTED', font: '14pt Share Tech Mono', style: Cesium.LabelStyle.FILL_AND_OUTLINE, fillColor: Cesium.Color.RED, outlineWidth: 3, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
-                        });
-                        cesiumEntities[osintId] = ent;
-                        
-                        let cat = 'Military';
-                        if (props.t && props.t.includes("Aviation")) cat = 'Aviation';
-        else if (props.t && props.t.includes("Energy")) cat = 'Energy';
-        else if (props.t && props.t.includes("Highways")) cat = 'Highways';
-        else if (props.tags) {
-            if (props.tags.aeroway) cat = 'Aviation';
-            else if (props.tags.power) cat = 'Energy';
-            else if (props.tags.highway) cat = 'Highways';
-        }
-                        
-                        if (!cesiumOsintEntities[cat]) cesiumOsintEntities[cat] = [];
-                        cesiumOsintEntities[cat].push(ent);
-                    }
-                }
-            }
-        });
-        
-        // Sync Earthquakes if fetched in 2D
-        if (window.lastEarthquakesGeoJSON) {
-            window.dispatchEvent(new CustomEvent("geoint:earthquakes", { detail: window.lastEarthquakesGeoJSON }));
-        }
-    }
-}
-
-function disable3D() {
-    is3DMode = false;
-    document.body.classList.remove('gods-eye-mode');
-    document.getElementById('cesiumContainer').style.display = 'none';
-    document.getElementById('map').style.display = 'block';
-    document.getElementById('toggle3DBtn').textContent = '🌐 3D MODE';
-    document.getElementById('panel-3d-controls').style.display = 'none';
-    document.getElementById('hud-overlay').style.display = 'none';
-    document.getElementById('scanlines').style.display = 'none';
-    document.getElementById('hud-text').style.display = 'none';
-}
-
-// Subscribe to state updates from app.js
-window.addEventListener('geoint:radar_update', (e) => {
-    if (!viewer) return;
-    const features = e.detail.features; // now expecting GeoJSON features
-    // Render in Cesium
-    const now = Date.now();
-    features.forEach(feature => {
-        const props = feature.properties;
-        const coords = feature.geometry.coordinates;
-        const icao = props.icao;
-        const lon = coords[0];
-        const lat = coords[1];
-        const alt = coords[2] || 0;
-        
-        if (lon && lat) {
-            const position = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-            const time = Cesium.JulianDate.now();
-            
-            if (cesiumEntities[icao]) {
-                // 🔥 POWER FEATURE: Smooth interpolation between radar pings
-                try { cesiumEntities[icao].position.addSample(time, position); } catch(e) {}
-                cesiumEntities[icao].lastSeen = now;
-            } else {
-                const positionProperty = new Cesium.SampledPositionProperty();
-                positionProperty.addSample(time, position);
-                positionProperty.backwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
-                positionProperty.forwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
-                
-                cesiumEntities[icao] = viewer.entities.add({
-                    position: positionProperty,
-                    point: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-                    label: { text: props.flight || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9), disableDepthTestDistance: Number.POSITIVE_INFINITY },
-                    // 🔥 POWER FEATURE: Tactical Flight Trails
-                    path: {
-                        resolution: 1,
-                        material: new Cesium.PolylineGlowMaterialProperty({
-                            glowPower: 0.1,
-                            color: Cesium.Color.YELLOW
-                        }),
-                        width: 3,
-                        leadTime: 0,
-                        trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000) // Leaves a 60-second trail behind the aircraft
-                    }
+                        trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000)
+                    },
+                    viewFrom: new Cesium.Cartesian3(0, -5000, 1500)
                 });
                 cesiumEntities[icao].lastSeen = now;
                 // Add interpolation settings
@@ -479,7 +329,7 @@ window.enterCockpitMode = function() {
             } else {
                 alert("No aircraft detected in this sector right now. Try panning the map.");
             }
-        }, 8000);
+        }, 10000);
         return;
     }
     viewer.selectedEntity = cesiumEntities[planeIds[Math.floor(Math.random() * planeIds.length)]];
