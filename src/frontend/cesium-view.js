@@ -44,7 +44,7 @@ function enable3D() {
                 terrainProvider: Cesium.createWorldTerrainAsync ? await Cesium.createWorldTerrainAsync() : Cesium.createWorldTerrain(),
                 terrainExaggeration: 1.5, // 🔥 GOD'S EYE FEATURE: Dramatic Mountains
                 
-                baseLayerPicker: false,
+                baseLayerPicker: true,
                 geocoder: false,
                 homeButton: false,
                 sceneModePicker: false,
@@ -185,7 +185,7 @@ window.addEventListener('geoint:radar_update', (e) => {
     features.forEach(feature => {
         const props = feature.properties;
         const coords = feature.geometry.coordinates;
-        const icao = props.icao;
+        const icao = props.icao || props.mmsi || props.id || f.id || Math.random().toString();
         const lon = coords[0];
         const lat = coords[1];
         const alt = coords[2] || 0;
@@ -215,7 +215,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                 
                 
                 
-                const callsign = props.flight || icao;
+                const callsign = props.flight || props.name || props.n || icao;
                 const speed = Math.round((props.velocity || (props.speed * 0.514444) || (props.gs * 0.514444) || 0) * 1.94384);
                 const altM = Math.round((alt || 0) * 3.28084);
                 const headingDeg = props.heading || props.track || 0;
@@ -243,7 +243,16 @@ window.addEventListener('geoint:radar_update', (e) => {
                         disableDepthTestDistance: Number.POSITIVE_INFINITY, show: false 
                     },
                     billboard: {
-                        image: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22yellow%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20d%3D%22M21%2C16V14L13%2C9V3.5C13%2C2.67%2012.33%2C2%2011.5%2C2C10.67%2C2%2010%2C2.67%2010%2C3.5V9L2%2C14V16L10%2C13.5V19L8%2C20.5V22L11.5%2C21L15%2C22V20.5L13%2C19V13.5L21%2C16Z%22%20%2F%3E%3C%2Fsvg%3E',
+                        image: (function() {
+                            const val = document.getElementById('scanFilter') ? document.getElementById('scanFilter').value : 'aviation';
+                            if (val === 'maritime' || type.toLowerCase().includes('vessel') || type.toLowerCase().includes('ship')) {
+                                return 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22cyan%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20d%3D%22M22,16 L20,9 L4,9 L2,16 L12,22 Z%22%20%2F%3E%3C%2Fsvg%3E';
+                            } else if (val === 'military' || type.toLowerCase().includes('military') || type.toLowerCase().includes('armor')) {
+                                return 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22red%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20d%3D%22M2,6 L22,6 L22,18 L2,18 Z M4,8 L20,8 L20,16 L4,16 Z M12,2 L12,12 Z%22%20%2F%3E%3C%2Fsvg%3E';
+                            } else {
+                                return 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22yellow%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20d%3D%22M21%2C16V14L13%2C9V3.5C13%2C2.67%2012.33%2C2%2011.5%2C2C10.67%2C2%2010%2C2.67%2010%2C3.5V9L2%2C14V16L10%2C13.5V19L8%2C20.5V22L11.5%2C21L15%2C22V20.5L13%2C19V13.5L21%2C16Z%22%20%2F%3E%3C%2Fsvg%3E';
+                            }
+                        })(),
                         scale: 1.0,
                         rotation: Cesium.Math.toRadians(headingDeg),
                         alignedAxis: Cesium.Cartesian3.UNIT_Z,
@@ -251,7 +260,12 @@ window.addEventListener('geoint:radar_update', (e) => {
                     },
                     path: {
                         resolution: 1,
-                        material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: Cesium.Color.YELLOW }),
+                        material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: (function() {
+                            const val = document.getElementById('scanFilter') ? document.getElementById('scanFilter').value : 'aviation';
+                            if (val === 'maritime' || type.toLowerCase().includes('vessel') || type.toLowerCase().includes('ship')) return Cesium.Color.CYAN;
+                            if (val === 'military' || type.toLowerCase().includes('military') || type.toLowerCase().includes('armor')) return Cesium.Color.RED;
+                            return Cesium.Color.YELLOW;
+                        })() }),
                         width: 3, leadTime: 0, trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000)
                     },
                     viewFrom: new Cesium.Cartesian3(viewX, viewY, 800)
@@ -428,7 +442,11 @@ window.enterCockpitMode = async function() {
     
     const req = {
         lat: centerLat, lon: centerLon, 
-        width_deg: span*2, height_deg: span*2, filter: 'radar'
+        width_deg: span*2, height_deg: span*2, filter: (function() {
+        const val = document.getElementById('scanFilter') ? document.getElementById('scanFilter').value : 'aviation';
+        const fm = { 'maritime': 'maritime', 'aviation': 'radar', 'energy': 'energy', 'military': 'military' };
+        return fm[val] || 'radar';
+    })()
     };
     
     try {

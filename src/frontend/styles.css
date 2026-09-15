@@ -206,3 +206,8 @@
 .cesium-infoBox-iframe {
     filter: invert(1) hue-rotate(180deg);
 }
+
+/* Ensure Cesium toolbar (BaseLayerPicker) is above the lens mask */
+.cesium-viewer-toolbar {
+    z-index: 999999 !important;
+}

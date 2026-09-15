@@ -73,7 +73,7 @@
                 btn.style.background = "#ffea00";
                 btn.style.color = "#000";
                 logIntel("Live Radar ACTIVATED. Tracking real-time airspace transponders...", "crisis");
-                fetchLiveRadar(true);
+                window.lastRadarFetch = 0; fetchLiveRadar(true);
                 radarInterval = setInterval(() => fetchLiveRadar(false), 12000); 
             } else {
                 btn.style.background = "transparent";
@@ -123,7 +123,11 @@
                             lon: c_lon, 
                             width_deg: w_width, 
                             height_deg: w_height, 
-                            filter: 'radar' 
+                            filter: (function() {
+                                const val = document.getElementById('scanFilter') ? document.getElementById('scanFilter').value : 'aviation';
+                                const fm = { 'maritime': 'maritime', 'aviation': 'radar', 'energy': 'energy', 'military': 'military' };
+                                return fm[val] || 'radar';
+                            })() 
                         }),
                         signal: controller.signal
                     });
