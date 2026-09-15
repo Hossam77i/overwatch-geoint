@@ -101,3 +101,8 @@ jobs:
           aws lambda update-function-code --function-name overwatch_geoint_pipeline --image-uri "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
           aws lambda wait function-updated --function-name overwatch_geoint_pipeline
           aws lambda update-function-configuration --function-name overwatch_geoint_pipeline --timeout 300 --memory-size 1024
+
+      - name: Deploy Frontend to S3
+        run: |
+          aws s3 cp command-center.html s3://hossam-cloud-resume-e4b1b23e/command-center.html
+          aws s3 sync src/frontend s3://hossam-cloud-resume-e4b1b23e/src/frontend
