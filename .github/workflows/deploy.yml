@@ -104,5 +104,9 @@ jobs:
 
       - name: Deploy Frontend to S3
         run: |
+          # Dynamically inject API Gateway URL
+          API_URL=$(aws apigatewayv2 get-apis --query "Items[?Name=='overwatch_geoint_api'].ApiEndpoint" --output text)
+          echo "window.OVERWATCH_CONFIG = { TRIGGER_URL: "${API_URL}/trigger-overwatch" };" > src/frontend/config.js
+          
           aws s3 cp command-center.html s3://hossam-cloud-resume-e4b1b23e/command-center.html
           aws s3 sync src/frontend s3://hossam-cloud-resume-e4b1b23e/src/frontend

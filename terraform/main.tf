@@ -1,3 +1,13 @@
+terraform {
+  backend "s3" {
+    bucket         = "hossam-overwatch-tfstate" # Replace with your state bucket
+    key            = "geoint/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
+  }
+}
+
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
