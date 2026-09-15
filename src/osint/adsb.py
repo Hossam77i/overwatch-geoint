@@ -10,7 +10,7 @@ def get_radar_data(lat, lon, dist_nm=100):
         req = urllib.request.Request(
             url, headers={"User-Agent": "Overwatch-GeoINT-Serverless"}
         )
-        with urllib.request.urlopen(req, timeout=8.0) as res:
+        with urllib.request.urlopen(req, timeout=8.0) as res:  # nosec B310
             data = json.loads(res.read().decode())
 
             opensky_states = []

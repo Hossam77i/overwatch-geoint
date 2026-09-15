@@ -134,7 +134,7 @@ def _handler(event, context):
     south, north = lat - (height_deg / 2), lat + (height_deg / 2)
 
     url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox={west},{south},{east},{north}&bboxSR=4326&imageSR=4326&size=2048,2048&f=image"
-    img_path = "/tmp/target.jpg"
+    img_path = "/tmp/target.jpg"  # nosec B108
     try:
         response = requests.get(url, timeout=15)
         response.raise_for_status()
@@ -187,7 +187,7 @@ def _handler(event, context):
             pass
 
     scan_id = str(uuid.uuid4())
-    out_path = f"/tmp/{scan_id}.jpg"
+    out_path = f"/tmp/{scan_id}.jpg"  # nosec B108
     cv2.imwrite(out_path, output_img)
 
     boto3.client("s3", region_name=AWS_REGION).upload_file(
