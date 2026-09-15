@@ -49,6 +49,17 @@ function enable3D() {
             // 🔥 POWER FEATURE: Dynamic Day/Night Cycle based on real sun position
             viewer.scene.globe.enableLighting = true;
             
+            // 🔥 GOD'S EYE FEATURE: Cockpit View / Entity Tracking
+            viewer.selectedEntityChanged.addEventListener(function(selectedEntity) {
+                if (selectedEntity && selectedEntity.path) {
+                    viewer.trackedEntity = selectedEntity;
+                    // Zoom in closely behind the aircraft for a cinematic cockpit/chase view
+                    viewer.zoomTo(selectedEntity, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(0), Cesium.Math.toRadians(-15), 5000));
+                } else {
+                    viewer.trackedEntity = undefined;
+                }
+            });
+            
             // 🔥 POWER FEATURE: High-resolution atmosphere rendering
             viewer.scene.skyAtmosphere.hueShift = -0.05;
             viewer.scene.globe.depthTestAgainstTerrain = true; // Enable depth testing for real 3D terrain
