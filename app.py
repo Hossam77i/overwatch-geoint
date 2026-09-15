@@ -58,7 +58,7 @@ def _handler(event, context):
 
     if action == "macro_osint":
         try:
-            resp = requests.post("https://overpass-api.de/api/interpreter", data=body.get("query", ""), timeout=15)
+            resp = requests.post("https://overpass-api.de/api/interpreter", data={"data": body.get("query", "")}, timeout=15)
             return {
                 "statusCode": resp.status_code,
                 "headers": {"Access-Control-Allow-Origin": "*", "Content-Type": "application/json"},
