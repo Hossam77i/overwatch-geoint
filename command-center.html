@@ -134,15 +134,7 @@
         }
         
         body.gods-eye-mode .sidebar {
-            background: rgba(5, 10, 20, 0.65) !important;
-            border-right: 1px solid rgba(0, 240, 255, 0.3) !important;
-            backdrop-filter: blur(8px);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
-            position: absolute;
-            z-index: 1000;
-            height: 90vh;
-            top: 20px; left: 20px;
-            border-radius: 8px;
+            display: none !important;
         }
         
         body.gods-eye-mode .main-content {
@@ -159,7 +151,7 @@
             z-index: 1;
             /* 🔥 GOD'S EYE FEATURE: Literal Spy Lens Mask */
             clip-path: circle(45vh at 50% 50%) !important;
-            filter: sepia(0.4) hue-rotate(160deg) contrast(1.3) saturate(0.8) !important;
+            filter: contrast(1.1) saturate(0.8) brightness(1.1) !important;
         }
         
         body.gods-eye-mode {
@@ -245,42 +237,8 @@
         </div>
         <div class="ge-grid-2">
             <button class="ge-btn" onclick="toggleLiveRadar()">✈️ COCKPIT</button>
-            <button class="ge-btn">SEARCH NEARBY SITES</button>
-        </div>
-        
-        <div style="font-size: 10px; color: #fff; margin-bottom: 15px; text-align: center; letter-spacing: 1px;">
-            LOST77 • 250 km FLIGHT / VESSEL WINDOW
-        </div>
-        
-        <div class="ge-grid-3">
-            <button class="ge-btn-small">PREVIOUS</button>
-            <button class="ge-btn-small">FOCUS</button>
-            <button class="ge-btn-small">NEXT</button>
-        </div>
-        
-        <div style="border-top: 1px solid rgba(0, 150, 255, 0.2); margin: 15px 0;"></div>
-        
-        <div class="ge-list-header"><span>Flights</span><span>200 • 1/4</span></div>
-        <div class="ge-list-sub">OpenSky Network • observed or mapped nearby context</div>
-        <div class="ge-list-item"><span>SWA1325</span><span>32 km</span></div>
-        <div class="ge-list-item"><span>EJA479</span><span>36 km</span></div>
-        <div class="ge-list-item"><span>EJA494</span><span>43 km</span></div>
-        
-        <div style="margin: 15px 0;"></div>
-        
-        <div class="ge-list-header"><span>Military flights</span><span>3</span></div>
-        <div class="ge-list-sub">adsb.lol • observed or mapped nearby context</div>
-        <div class="ge-list-item"><span>ROPER32</span><span>208 km</span></div>
-        <div class="ge-list-item"><span>ROPER31</span><span>238 km</span></div>
-        <div class="ge-list-item"><span>C6557</span><span>247 km</span></div>
+            </div>
     </div>
-    
-    <div class="ge-bottom-bar">
-        <div class="ge-bottom-text">◎ LOCATION</div>
-        <div class="ge-mic">🎤</div>
-        <div class="ge-bottom-text" onclick="if(window.update3DSettings) window.update3DSettings(); alert('Visual presets applied.');">⎚ VISUAL PRESETS</div>
-    </div>
-
     <div class="hud-overlay-element" id="crosshair"></div>
     <div class="hud-overlay-element hud-corner" id="hud-tr">REC 2026-09-03 22:45:16Z<br>ORB: 47416 PASS: DESC-254</div>
     <div class="hud-overlay-element hud-corner" id="hud-bl">COLL: 22:46:17Z<br>L MGRS 37°</div>
