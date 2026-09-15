@@ -21,6 +21,41 @@
     
 
     <link rel="stylesheet" href="src/frontend/styles.css">
+
+    <style>
+        /* 🔥 GOD'S EYE FEATURE: Spy Satellite HUD Overlay */
+        #hud-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 1000;
+            background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.8) 100%);
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+            display: none;
+        }
+        .scanlines {
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 1001;
+            display: none;
+            opacity: 0.3;
+        }
+        .hud-text {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ffcc;
+            font-family: monospace;
+            font-size: 12px;
+            text-shadow: 0 0 5px #00ffcc;
+            display: none;
+            z-index: 1002;
+        }
+    </style>
+
 </head>
 
 <body>
@@ -196,7 +231,15 @@
             </div>
         </div>
         <div id="map"></div>
-        <div id="cesiumContainer" style="display:none; flex: 1; background: #000; height: 100%;"></div>
+        
+        <div id="hud-overlay"></div>
+        <div class="scanlines" id="scanlines"></div>
+        <div class="hud-text" id="hud-text">
+            TOP SECRET // SI-TK // NOFORN<br>
+            KH11-4078 OPS-4130<br>
+            NORMAL
+        </div>
+        <div id="cesiumContainer"  style="display:none; flex: 1; background: #000; height: 100%;"></div>
     </div>
 
     

@@ -17,6 +17,9 @@ function enable3D() {
     document.getElementById('map').style.display = 'none';
     document.getElementById('cesiumContainer').style.display = 'block';
     document.getElementById('toggle3DBtn').textContent = '🗺️ 2D MODE';
+    document.getElementById('hud-overlay').style.display = 'block';
+    document.getElementById('scanlines').style.display = 'block';
+    document.getElementById('hud-text').style.display = 'block';
 
     if (!window.Cesium) {
         logIntel("Initializing 3D Orbital Engine (Cesium)...", "info");
@@ -38,6 +41,7 @@ function enable3D() {
             viewer = new Cesium.Viewer('cesiumContainer', {
                 baseLayer: new Cesium.ImageryLayer(satelliteProvider),
                 terrainProvider: Cesium.createWorldTerrainAsync ? await Cesium.createWorldTerrainAsync() : Cesium.createWorldTerrain(),
+                terrainExaggeration: 1.5, // 🔥 GOD'S EYE FEATURE: Dramatic Mountains
                 
                 baseLayerPicker: false,
                 geocoder: false,
@@ -103,6 +107,9 @@ function disable3D() {
     document.getElementById('cesiumContainer').style.display = 'none';
     document.getElementById('map').style.display = 'block';
     document.getElementById('toggle3DBtn').textContent = '🌐 3D MODE';
+    document.getElementById('hud-overlay').style.display = 'none';
+    document.getElementById('scanlines').style.display = 'none';
+    document.getElementById('hud-text').style.display = 'none';
 }
 
 // Subscribe to state updates from app.js
@@ -168,6 +175,8 @@ function syncDataTo3D() {
     if (window.map && viewer) {
         const center = window.map.getCenter();
         const alt = Math.max(10000, 20000000 / Math.pow(2, window.map.getZoom()));
+        
+        // 🔥 GOD'S EYE FEATURE: Always force cinematic pitch
         viewer.camera.flyTo({
             destination: Cesium.Cartesian3.fromDegrees(center.lng, center.lat, alt),
             orientation: {
