@@ -33,7 +33,7 @@ function enable3D() {
         
         script.onload = async () => {
             
-            Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6Il9nSnYtckgtWENYbDZYYkYiLCJqdGkiOiJmNTg1ZDQ3Ni02YmNmLTRjYjItYjI0MS1iNzc3YThkMmRmYTgiLCJpZCI6NDk1NTI2LCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3ODk0NzQ3MTl9.NhSZ5xbWdU5Afx4m6oBOmbfyqA4p7YMSonnwjcxBN4Q';
+            Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IkdZS0t2NVpTTFFCUTZac3oiLCJqdGkiOiI1ZGY5ZWVlYy02YjMyLTQxOTYtODRlZi01NTE0MDcxNzRmOTEiLCJpZCI6NDk1NTI2LCJzdWIiOiJob3NzYW03NzYiLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoicHJvamVjdCIsImlhdCI6MTc4OTQ3OTkyNn0.tqm8aciTaU5FitiJhK71f4lUSwBnhI5xaQOZFc0Kp_s';
             const satelliteProvider = new Cesium.UrlTemplateImageryProvider({
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 maximumLevel: 19
