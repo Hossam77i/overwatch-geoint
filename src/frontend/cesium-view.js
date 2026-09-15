@@ -124,10 +124,12 @@ window.addEventListener('geoint:osint_update', (e) => {
     if (!assets) return;
     
     assets.forEach(a => {
+        const props = a.properties || a;
+        const coords = a.geometry ? a.geometry.coordinates : [a.lon, a.lat];
         viewer.entities.add({
-            position: Cesium.Cartesian3.fromDegrees(a.lon, a.lat),
+            position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1]),
             point: { pixelSize: 10, color: Cesium.Color.RED },
-            label: { text: a.name, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
+            label: { text: props.name || props.n, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
         });
     });
 });
