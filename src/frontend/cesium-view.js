@@ -203,7 +203,7 @@ window.addEventListener('geoint:osint_update', (e) => {
     assets.forEach(a => {
         const props = a.properties || a;
         const coords = a.geometry ? a.geometry.coordinates : [a.lon, a.lat];
-        viewer.entities.add({
+        const ent = viewer.entities.add({
             position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1]),
             // 🔥 POWER FEATURE: Vertical tactical beam (laser) marking the target location
             polyline: {
@@ -220,6 +220,14 @@ window.addEventListener('geoint:osint_update', (e) => {
             point: { pixelSize: 12, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
             label: { text: props.name || props.n, font: 'bold 11pt monospace', fillColor: Cesium.Color.WHITE, style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineColor: Cesium.Color.BLACK, outlineWidth: 3, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
         });
+        
+        let cat = 'Military';
+        if (props.t.includes("Aviation")) cat = 'Aviation';
+        else if (props.t.includes("Energy")) cat = 'Energy';
+        else if (props.t.includes("Highways")) cat = 'Highways';
+        
+        if (!cesiumOsintEntities[cat]) cesiumOsintEntities[cat] = [];
+        cesiumOsintEntities[cat].push(ent);
     });
 });
 
@@ -252,4 +260,21 @@ window.addEventListener('geoint:earthquakes_toggle', (e) => {
     if (!viewer) return;
     const show = e.detail.show;
     cesiumEarthquakes.forEach(ent => ent.show = show);
+});
+
+// Handle OSINT Filter Toggling in 3D
+let cesiumOsintEntities = {
+    'Military': [],
+    'Energy': [],
+    'Aviation': [],
+    'Highways': []
+};
+
+window.addEventListener('geoint:osint_filter_toggle', (e) => {
+    if (!viewer) return;
+    const type = e.detail.type;
+    const show = e.detail.show;
+    if (cesiumOsintEntities[type]) {
+        cesiumOsintEntities[type].forEach(ent => ent.show = show);
+    }
 });
