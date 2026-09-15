@@ -422,7 +422,20 @@
         function infraMerged() {
             const seen = new Set(), out = [];
             [...(window._infraDB || []), ...(window._infraStatic || [])].forEach(a => {
-                const k = (a.n || '').toLowerCase() + '_' + a.lat + '_' + a.lon;
+                // Handle GeoJSON features or legacy flat objects
+                const props = a.properties || a;
+                const coords = a.geometry ? a.geometry.coordinates : [a.lon, a.lat];
+                const lat = coords[1], lon = coords[0];
+                const k = (props.n || '').toLowerCase() + '_' + lat + '_' + lon;
+                if (!seen.has(k)) { 
+                    seen.add(k); 
+                    out.push({
+                        t: props.t, n: props.n, d: props.d, s: props.s, c: props.c, lat: lat, lon: lon, q: props.q, k: props.k
+                    }); 
+                }
+            });
+            return out;
+        }
                 if (!seen.has(k)) { seen.add(k); out.push(a); }
             });
             return out;
