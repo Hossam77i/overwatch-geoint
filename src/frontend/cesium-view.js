@@ -29,8 +29,8 @@ function enable3D() {
         
         script.onload = () => {
             viewer = new Cesium.Viewer('cesiumContainer', {
-                imageryProvider: new Cesium.OpenStreetMapImageryProvider({
-                    url: 'https://a.tile.openstreetmap.org/'
+                imageryProvider: new Cesium.UrlTemplateImageryProvider({
+                    url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'
                 }),
                 baseLayerPicker: false,
                 geocoder: false,
