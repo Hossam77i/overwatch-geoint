@@ -143,6 +143,7 @@
                     const data = proxyData.radar_data;
                     
                     if (data && data.type === "FeatureCollection" && data.features.length > 0) {
+                        logIntel(`Radar API Returned: ${data.features.length} planes.`, 'success');
                         renderRadarData(data.features);
                     } else if (!req.isBackground) {
                         logIntel(`[RADAR] Airspace clear. 0 active transponders inside this ${w},${s} sector.`, "warn");
@@ -228,9 +229,11 @@
                 const mLat = (lamin + lamax) / 2;
                 const mLon = (lomin + lomax) / 2;
                 // Execute a single, highly-efficient wide-area sweep instead of 4 quadrants to prevent API rate limits
-                radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax, isBackground: !isPan});
+                logIntel(`Radar Raycast Bounds: s=${lamin.toFixed(2)}, n=${lamax.toFixed(2)}, w=${lomin.toFixed(2)}, e=${lomax.toFixed(2)}`, 'info');
+            radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax, isBackground: !isPan});
             } else {
-                radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax, isBackground: !isPan});
+                logIntel(`Radar Raycast Bounds: s=${lamin.toFixed(2)}, n=${lamax.toFixed(2)}, w=${lomin.toFixed(2)}, e=${lomax.toFixed(2)}`, 'info');
+            radarQueue.push({s: lamin, w: lomin, n: lamax, e: lomax, isBackground: !isPan});
             }
             
             processRadarQueue();

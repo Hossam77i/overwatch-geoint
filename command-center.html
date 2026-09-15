@@ -210,6 +210,33 @@
 </head>
 
 <body>
+    <div id="debugBox" style="position:fixed;top:10px;right:10px;width:300px;background:rgba(255,0,0,0.8);color:white;z-index:99999;padding:10px;font-family:monospace;font-size:10px;display:none;pointer-events:none;border-radius:5px;"></div>
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            if (msg.includes('3D tiles')) return false;
+            const dbg = document.getElementById('debugBox');
+            dbg.style.display = 'block';
+            dbg.innerHTML += `<b>ERROR:</b> ${msg} <br>Line: ${lineNo}<br><hr>`;
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            if (event.reason && event.reason.toString().includes('3D tiles')) return;
+            const dbg = document.getElementById('debugBox');
+            dbg.style.display = 'block';
+            dbg.innerHTML += `<b>PROMISE REJECTION:</b> ${event.reason} <br><hr>`;
+        });
+        
+        const oldErr = console.error;
+        console.error = function() {
+            const args = Array.from(arguments);
+            if (args.join(' ').includes('3D tiles')) return oldErr.apply(console, arguments);
+            const dbg = document.getElementById('debugBox');
+            dbg.style.display = 'block';
+            dbg.innerHTML += `<b>CONSOLE ERROR:</b> ${args.join(' ')} <br><hr>`;
+            oldErr.apply(console, arguments);
+        };
+    </script>
+
     
 
 
@@ -442,9 +469,9 @@
     
 
     
-    <script src="src/frontend/config.js?v=1789496154"></script>
-    <script src="src/frontend/cesium-view.js?v=1789496154"></script>
-    <script src="src/frontend/app.js?v=1789496154"></script>
+    <script src="src/frontend/config.js?old=1789496154"></script>
+    <script src="src/frontend/cesium-view.js?old=1789496154"></script>
+    <script src="src/frontend/app.js?old=1789496154"></script>
 </body>
 
 </html>
