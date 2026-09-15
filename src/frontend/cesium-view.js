@@ -352,8 +352,13 @@ window.addEventListener('geoint:map_move', (e) => {
 
 window.addEventListener('geoint:osint_update', (e) => {
     if (!viewer) return;
-    const assets = e.detail.assets;
+    const assets = e.detail.features || e.detail.assets;
     if (!assets) return;
+    const type = e.detail.type || 'Military';
+    if (cesiumOsintEntities[type]) {
+        cesiumOsintEntities[type].forEach(ent => viewer.entities.remove(ent));
+    }
+    cesiumOsintEntities[type] = [];
     
     assets.forEach(a => {
         const props = a.properties || a;
