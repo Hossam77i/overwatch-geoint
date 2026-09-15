@@ -59,6 +59,69 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
+        
+        /* Native God's Eye UI Styling */
+        .ge-panel {
+            position: absolute;
+            background: rgba(10, 15, 25, 0.85);
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            color: #8ab4f8;
+            font-family: 'Share Tech Mono', monospace;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+        body.gods-eye-mode .ge-panel { display: block; }
+        
+        .ge-right-panel { top: 50%; right: 40px; transform: translateY(-50%); width: 320px; }
+        .ge-left-panel { top: 50%; left: 40px; transform: translateY(-50%); width: 250px; background: transparent; border: none; }
+        
+        .ge-bottom-bar {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            background: rgba(10, 15, 25, 0.7); border: 1px solid rgba(0, 150, 255, 0.2);
+            border-radius: 30px; display: none; align-items: center; padding: 5px 20px;
+            z-index: 1000; gap: 40px;
+        }
+        body.gods-eye-mode .ge-bottom-bar { display: flex; }
+        
+        .ge-header { font-size: 10px; letter-spacing: 2px; color: #4b6a9b; text-transform: uppercase; margin-bottom: 15px; display: flex; justify-content: space-between; }
+        
+        .ge-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .ge-btn {
+            background: rgba(0, 150, 255, 0.05); border: 1px solid rgba(0, 150, 255, 0.4);
+            color: #8ab4f8; font-family: inherit; padding: 10px; border-radius: 4px;
+            cursor: pointer; text-align: center; font-size: 11px; letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+        .ge-btn:hover, .ge-btn.active { background: rgba(0, 150, 255, 0.2); border-color: #0096ff; color: #fff; }
+        
+        .ge-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 20px; }
+        .ge-btn-small { background: transparent; border: 1px solid rgba(0, 150, 255, 0.2); color: #8ab4f8; font-size: 10px; padding: 5px; border-radius: 4px; cursor: pointer; }
+        .ge-btn-small:hover { background: rgba(0, 150, 255, 0.1); }
+        
+        .ge-list-header { display: flex; justify-content: space-between; font-size: 12px; color: #fff; margin-bottom: 2px; }
+        .ge-list-sub { font-size: 9px; color: #4b6a9b; margin-bottom: 10px; }
+        .ge-list-item { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; color: #a9c2f0; }
+        
+        .ge-left-item {
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid rgba(0, 150, 255, 0.3); background: rgba(10, 15, 25, 0.7);
+            padding: 12px 20px; border-radius: 8px; margin-bottom: 15px; cursor: pointer;
+            letter-spacing: 1px; font-size: 12px;
+        }
+        .ge-left-item:hover { background: rgba(0, 150, 255, 0.1); }
+        .ge-left-item .plus { border: 1px solid rgba(0, 150, 255, 0.5); border-radius: 3px; padding: 0 5px; }
+        
+        .ge-mic {
+            width: 50px; height: 50px; background: rgba(0, 150, 255, 0.15); border: 1px solid #0096ff;
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            font-size: 20px; cursor: pointer; box-shadow: 0 0 15px rgba(0, 150, 255, 0.3);
+        }
+        .ge-bottom-text { font-size: 11px; letter-spacing: 1px; color: #4b6a9b; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .ge-bottom-text:hover { color: #8ab4f8; }
+
         /* 🔥 GOD'S EYE MODE OVERRIDES */
         body.gods-eye-mode {
             font-family: 'Share Tech Mono', monospace !important;
@@ -157,12 +220,67 @@
 <body>
 
     <!-- 🔥 GOD'S EYE UI ELEMENTS -->
-    <div id="gods-eye-top-bar">
-        <button onclick="toggle3DView()" id="toggle3DBtn-glass">🗺️ 2D MODE</button>
-        <button onclick="toggleLiveRadar()">📡 LIVE AVIATION</button>
-        <button class="danger" onclick="executeMacroOSINT()">🔴 MACRO OSINT SCAN</button>
+    
+    
+    
+    <!-- 🔥 NATIVE GOD'S EYE UI CLONE -->
+    <div class="ge-panel ge-left-panel">
+        <div class="ge-left-item" onclick="document.getElementById('layer-military').click(); executeMacroOSINT();">
+            DATA LAYERS <span class="plus">+</span>
+        </div>
+        <div class="ge-left-item" onclick="toggle3DView()">
+            SCENES (2D) <span class="plus">↶</span>
+        </div>
     </div>
     
+    <div class="ge-panel ge-right-panel">
+        <div class="ge-header">
+            CONTEXT
+            <div>📁 ▶</div>
+        </div>
+        
+        <div class="ge-grid-2">
+            <button class="ge-btn active" onclick="document.getElementById('layer-military').click(); executeMacroOSINT();">◎ CONTACTS</button>
+            <button class="ge-btn" onclick="document.getElementById('layer-earthquakes').click()">🚀 SPACE MISSIONS</button>
+        </div>
+        <div class="ge-grid-2">
+            <button class="ge-btn" onclick="toggleLiveRadar()">✈️ COCKPIT</button>
+            <button class="ge-btn">SEARCH NEARBY SITES</button>
+        </div>
+        
+        <div style="font-size: 10px; color: #fff; margin-bottom: 15px; text-align: center; letter-spacing: 1px;">
+            LOST77 • 250 km FLIGHT / VESSEL WINDOW
+        </div>
+        
+        <div class="ge-grid-3">
+            <button class="ge-btn-small">PREVIOUS</button>
+            <button class="ge-btn-small">FOCUS</button>
+            <button class="ge-btn-small">NEXT</button>
+        </div>
+        
+        <div style="border-top: 1px solid rgba(0, 150, 255, 0.2); margin: 15px 0;"></div>
+        
+        <div class="ge-list-header"><span>Flights</span><span>200 • 1/4</span></div>
+        <div class="ge-list-sub">OpenSky Network • observed or mapped nearby context</div>
+        <div class="ge-list-item"><span>SWA1325</span><span>32 km</span></div>
+        <div class="ge-list-item"><span>EJA479</span><span>36 km</span></div>
+        <div class="ge-list-item"><span>EJA494</span><span>43 km</span></div>
+        
+        <div style="margin: 15px 0;"></div>
+        
+        <div class="ge-list-header"><span>Military flights</span><span>3</span></div>
+        <div class="ge-list-sub">adsb.lol • observed or mapped nearby context</div>
+        <div class="ge-list-item"><span>ROPER32</span><span>208 km</span></div>
+        <div class="ge-list-item"><span>ROPER31</span><span>238 km</span></div>
+        <div class="ge-list-item"><span>C6557</span><span>247 km</span></div>
+    </div>
+    
+    <div class="ge-bottom-bar">
+        <div class="ge-bottom-text">◎ LOCATION</div>
+        <div class="ge-mic">🎤</div>
+        <div class="ge-bottom-text" onclick="if(window.update3DSettings) window.update3DSettings(); alert('Visual presets applied.');">⎚ VISUAL PRESETS</div>
+    </div>
+
     <div class="hud-overlay-element" id="crosshair"></div>
     <div class="hud-overlay-element hud-corner" id="hud-tr">REC 2026-09-03 22:45:16Z<br>ORB: 47416 PASS: DESC-254</div>
     <div class="hud-overlay-element hud-corner" id="hud-bl">COLL: 22:46:17Z<br>L MGRS 37°</div>
@@ -280,7 +398,7 @@
                 <button id="exportBtn" class="btn" style="border:none; border-radius:0; background:transparent; color:var(--accent-hi);" onclick="exportDossier()">📄 DOSSIER</button>
             </div>
             
-            <button class="btn btn-macro" id="macroBtn" onclick="executeMacroOSINT()">MACRO OSINT</button>
+            <button class="btn btn-macro" id="macroBtn" onclick="document.getElementById('layer-military').click(); executeMacroOSINT();">MACRO OSINT</button>
             <button class="btn btn-reset" onclick="resetView()">RESET</button>
             <button class="btn btn-reset" id="toggle3DBtn" onclick="toggle3DView()" style="color:#2dd4bf; border-color:#2dd4bf;">🌐 3D MODE</button>
             <button class="btn btn-reset" onclick="showTutorial()" style="color:var(--info); border-color:var(--info);">❓ TUTORIAL</button>
