@@ -86,6 +86,11 @@ function enable3D() {
                 }
             } catch(e) {
                 console.error("Failed to load 3D tiles:", e);
+                try {
+                    const b = await Cesium.createOsmBuildingsAsync();
+                    b.style = new Cesium.Cesium3DTileStyle({ color: "color('#445566', 0.8)" });
+                    window.cesiumBuildings = viewer.scene.primitives.add(b);
+                } catch(e2) { console.error(e2); }
             }
             
             if (window.update3DSettings) window.update3DSettings();
@@ -95,11 +100,13 @@ function enable3D() {
             // Remove the default Cesium logo/credit text for a cleaner tactical look
             viewer.cesiumWidget.creditContainer.style.display = 'none';
             
+            logIntel('3D Engine Online.', 'success');
             syncDataTo3D();
         };
         document.head.appendChild(script);
     } else {
-        syncDataTo3D();
+        logIntel('3D Engine Online.', 'success');
+            syncDataTo3D();
     }
 }
 
