@@ -84,12 +84,12 @@ function enable3D() {
                     window.cesiumBuildings = viewer.scene.primitives.add(Cesium.createOsmBuildings());
                 }
             } catch(e) {
-                console.error("Failed to load 3D tiles:", e);
+                console.warn("3D Buildings not available with this token.");
                 try {
                     const b = await Cesium.createOsmBuildingsAsync();
                     b.style = new Cesium.Cesium3DTileStyle({ color: "color('#445566', 0.8)" });
                     window.cesiumBuildings = viewer.scene.primitives.add(b);
-                } catch(e2) { console.error(e2); }
+                } catch(e2) { }
             }
             
             if (window.update3DSettings) window.update3DSettings();
