@@ -189,8 +189,7 @@
                 } else {
                     const canvas = window.viewer.scene.canvas;
                     const center = new Cesium.Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2);
-                    const ray = window.viewer.camera.getPickRay(center);
-                    const pickPos = window.viewer.scene.globe.pick(ray, window.viewer.scene);
+                    const pickPos = window.viewer.camera.pickEllipsoid(center, window.viewer.scene.globe.ellipsoid);
                     const carto = window.viewer.camera.positionCartographic;
                     let centerLat, centerLon;
                     if (pickPos) {
