@@ -159,11 +159,38 @@ window.addEventListener('geoint:radar_update', (e) => {
                 positionProperty.backwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
                 positionProperty.forwardExtrapolationType = Cesium.ExtrapolationType.EXTRAPOLATE;
                 
+                
+                const callsign = props.flight || icao;
+                const speed = props.speed || props.gs || 0;
+                const altM = Math.round((alt || 0) * 3.28084); // meters to feet for display
+                const headingDeg = props.heading || props.track || 0;
+                const type = props.t || "Unknown";
+                const squawk = props.squawk || "None";
+                
+                const descHTML = `
+                    <table class="cesium-infoBox-defaultTable">
+                        <tbody>
+                            <tr><th>Flight</th><td>${callsign}</td></tr>
+                            <tr><th>Altitude</th><td>${altM} ft</td></tr>
+                            <tr><th>Speed</th><td>${speed} kts</td></tr>
+                            <tr><th>Heading</th><td>${headingDeg}°</td></tr>
+                            <tr><th>Type</th><td>${type}</td></tr>
+                            <tr><th>Squawk</th><td>${squawk}</td></tr>
+                        </tbody>
+                    </table>
+                `;
+                
                 cesiumEntities[icao] = viewer.entities.add({
                     position: positionProperty,
-                    point: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
-                    label: { text: props.flight || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9), disableDepthTestDistance: Number.POSITIVE_INFINITY },
-                    // 🔥 POWER FEATURE: Tactical Flight Trails
+                    description: descHTML,
+                    name: callsign,
+                    billboard: {
+                        image: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22yellow%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20d%3D%22M21%2C16V14L13%2C9V3.5C13%2C2.67%2012.33%2C2%2011.5%2C2C10.67%2C2%2010%2C2.67%2010%2C3.5V9L2%2C14V16L10%2C13.5V19L8%2C20.5V22L11.5%2C21L15%2C22V20.5L13%2C19V13.5L21%2C16Z%22%20%2F%3E%3C%2Fsvg%3E',
+                        scale: 1.0,
+                        rotation: Cesium.Math.toRadians(headingDeg),
+                        alignedAxis: Cesium.Cartesian3.UNIT_Z,
+                        disableDepthTestDistance: Number.POSITIVE_INFINITY
+                    },
                     path: {
                         resolution: 1,
                         material: new Cesium.PolylineGlowMaterialProperty({
@@ -176,6 +203,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                     },
                     viewFrom: new Cesium.Cartesian3(0, -5000, 1500)
                 });
+
                 cesiumEntities[icao].lastSeen = now;
                 // Add interpolation settings
                 
