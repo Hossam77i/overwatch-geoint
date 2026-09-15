@@ -237,9 +237,14 @@ function syncDataTo3D() {
                         cesiumEntities[osintId] = ent;
                         
                         let cat = 'Military';
-                        if (props.t.includes("Aviation")) cat = 'Aviation';
-                        else if (props.t.includes("Energy")) cat = 'Energy';
-                        else if (props.t.includes("Highways")) cat = 'Highways';
+                        if (props.t && props.t.includes("Aviation")) cat = 'Aviation';
+        else if (props.t && props.t.includes("Energy")) cat = 'Energy';
+        else if (props.t && props.t.includes("Highways")) cat = 'Highways';
+        else if (props.tags) {
+            if (props.tags.aeroway) cat = 'Aviation';
+            else if (props.tags.power) cat = 'Energy';
+            else if (props.tags.highway) cat = 'Highways';
+        }
                         
                         if (!cesiumOsintEntities[cat]) cesiumOsintEntities[cat] = [];
                         cesiumOsintEntities[cat].push(ent);
@@ -378,13 +383,18 @@ window.addEventListener('geoint:osint_update', (e) => {
                 })
             },
             point: { pixelSize: 12, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
-            label: { text: props.name || props.n, font: 'bold 11pt monospace', fillColor: Cesium.Color.WHITE, style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineColor: Cesium.Color.BLACK, outlineWidth: 3, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
+            label: { text: props.name || props.n || (props.tags ? props.tags.name : 'Unknown Target'), font: 'bold 11pt monospace', fillColor: Cesium.Color.WHITE, style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineColor: Cesium.Color.BLACK, outlineWidth: 3, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
         });
         
         let cat = 'Military';
-        if (props.t.includes("Aviation")) cat = 'Aviation';
-        else if (props.t.includes("Energy")) cat = 'Energy';
-        else if (props.t.includes("Highways")) cat = 'Highways';
+        if (props.t && props.t.includes("Aviation")) cat = 'Aviation';
+        else if (props.t && props.t.includes("Energy")) cat = 'Energy';
+        else if (props.t && props.t.includes("Highways")) cat = 'Highways';
+        else if (props.tags) {
+            if (props.tags.aeroway) cat = 'Aviation';
+            else if (props.tags.power) cat = 'Energy';
+            else if (props.tags.highway) cat = 'Highways';
+        }
         
         if (!cesiumOsintEntities[cat]) cesiumOsintEntities[cat] = [];
         cesiumOsintEntities[cat].push(ent);

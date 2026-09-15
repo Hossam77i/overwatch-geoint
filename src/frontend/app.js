@@ -1419,3 +1419,47 @@
             }
         });
     
+window.earthquakesLayer = L.layerGroup();
+let hasFetchedEarthquakes = false;
+window.toggleEarthquakes = async function() {
+    const isChecked = document.getElementById('layer-earthquakes').checked;
+    
+    if (isChecked) {
+        window.earthquakesLayer.addTo(window.map);
+        logIntel("God's Eye: Fetching live seismic data from USGS...", "info");
+        
+        if (!hasFetchedEarthquakes) {
+            try {
+                const res = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson");
+                const data = await res.json();
+                hasFetchedEarthquakes = true;
+                window.lastEarthquakesGeoJSON = data;
+                
+                data.features.forEach(feature => {
+                    const coords = feature.geometry.coordinates;
+                    const mag = feature.properties.mag;
+                    const place = feature.properties.place;
+                    
+                    L.circleMarker([coords[1], coords[0]], {
+                        radius: Math.max(3, mag * 2),
+                        fillColor: "#ff3300",
+                        color: "#ff0000",
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.6
+                    }).bindPopup(`<div style="font-family:monospace;font-size:12px;color:red;"><b>⚠️ M${mag} SEISMIC ANOMALY</b><br>${place}</div>`).addTo(window.earthquakesLayer);
+                });
+                
+                window.dispatchEvent(new CustomEvent("geoint:earthquakes", { detail: data }));
+                logIntel(`God's Eye: Tracked ${data.features.length} seismic anomalies worldwide.`, "success");
+            } catch(e) {
+                logIntel("God's Eye: Failed to fetch seismic data.", "error");
+            }
+        } else {
+            window.dispatchEvent(new CustomEvent("geoint:earthquakes_toggle", { detail: { show: true } }));
+        }
+    } else {
+        window.map.removeLayer(window.earthquakesLayer);
+        window.dispatchEvent(new CustomEvent("geoint:earthquakes_toggle", { detail: { show: false } }));
+    }
+};
