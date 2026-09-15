@@ -51,7 +51,7 @@ function enable3D() {
                 navigationHelpButton: false,
                 animation: false,
                 timeline: false,
-                infoBox: false
+                infoBox: true
             });
             
             // 🔥 POWER FEATURE: Dynamic Day/Night Cycle based on real sun position
@@ -147,8 +147,17 @@ window.addEventListener('geoint:radar_update', (e) => {
             } else {
                 const positionProperty = new Cesium.SampledPositionProperty();
                 positionProperty.addSample(time, position);
+                
+                const headingRad = Cesium.Math.toRadians(props.heading || props.track || 0);
+                const speedMps = (props.speed || props.gs || 400) * 0.514444;
+                const dLat = (speedMps * 10 * Math.cos(headingRad)) / 111320;
+                const dLon = (speedMps * 10 * Math.sin(headingRad)) / (111320 * Math.cos(Cesium.Math.toRadians(lat)));
+                const futurePos = Cesium.Cartesian3.fromDegrees(lon + dLon, lat + dLat, alt);
+                const futureTime = Cesium.JulianDate.addSeconds(time, 10, new Cesium.JulianDate());
+                positionProperty.addSample(futureTime, futurePos);
+                
                 positionProperty.backwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
-                positionProperty.forwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
+                positionProperty.forwardExtrapolationType = Cesium.ExtrapolationType.EXTRAPOLATE;
                 
                 cesiumEntities[icao] = viewer.entities.add({
                     position: positionProperty,
@@ -313,6 +322,9 @@ window.update3DSettings = function() {
 
 window.enterCockpitMode = async function() {
     if (!viewer) return;
+    if (!window.radarActive) {
+        document.getElementById('radarBtn').click();
+    }
     const planeIds = Object.keys(cesiumEntities).filter(k => cesiumEntities[k].path);
     if (planeIds.length > 0) {
         viewer.selectedEntity = cesiumEntities[planeIds[Math.floor(Math.random() * planeIds.length)]];
