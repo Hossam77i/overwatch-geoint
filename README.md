@@ -44,7 +44,10 @@ The system utilizes an advanced event-driven architecture defined via Terraform 
 
 ```mermaid
 graph TD
-    UI[Frontend Dashboard<br/>Leaflet.js + Canvas] -->|HTTP POST| API[AWS API Gateway]
+    subgraph Frontend
+        UI[Leaflet.js 2D] -->|Event Bus| V3D[CesiumJS 3D Globe]
+    end
+    UI -->|HTTP POST| API[AWS API Gateway]
     API --> Lambda[AWS Lambda<br/>Python + OpenCV]
     
     Lambda -->|Target Caching| DDB[(DynamoDB<br/>Infra Cache & TTL)]
@@ -109,3 +112,8 @@ We welcome contributions from the Open Source Intelligence (OSINT) and DevSecOps
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Recent Architectural Upgrades
+- **Modular Uncoupling**: Transitioned from a monolithic handler to distinct, testable domain modules (`src/api`, `src/cv`, `src/osint`, `src/db`).
+- **3D God's Eye View**: Integrated a lazy-loaded CesiumJS layer that shares state with Leaflet via an event bus, bringing a 3D orbital capability without duplicating fetches or logic.
+- **Event-Driven UI**: Converted direct DOM manipulation of tactical components to a standardized event-dispatch model (`geoint:radar_update`, `geoint:osint_update`).

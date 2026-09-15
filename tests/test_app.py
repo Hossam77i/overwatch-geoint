@@ -1,18 +1,22 @@
-
 import pytest
 import sys
-import json
 import os
-from unittest.mock import patch, MagicMock
+import json
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import app
+from src.cv import utils as cv_utils
 
 @pytest.fixture(autouse=True)
 def mock_all_external():
-    with patch('app.requests.get') as mock_get,          patch('app.requests.post') as mock_post,          patch('urllib.request.urlretrieve') as mock_retrieve,          patch('cv2.imwrite') as mock_imwrite,          patch('boto3.client') as mock_boto_client,          patch('boto3.resource') as mock_boto_resource:
+    with patch('app.requests.get') as mock_get, \
+         patch('app.requests.post') as mock_post, \
+         patch('urllib.request.urlopen') as mock_urlopen, \
+         patch('cv2.imwrite') as mock_imwrite, \
+         patch('boto3.client') as mock_boto_client, \
+         patch('boto3.resource') as mock_boto_resource:
         
-        # Make the urlretrieve fake an image or prevent failure
         yield
 
 def test_handler_missing_body():
@@ -38,7 +42,7 @@ def test_nms_centers():
         ("rect2", 11, 11, 0.8),
         ("rect3", 50, 50, 0.95)
     ]
-    kept = app._nms_centers(items, min_dist=12)
+    kept = cv_utils.nms_centers(items, min_dist=12)
     assert len(kept) == 2
 
 def test_get_visitor_logs_unauthorized():
