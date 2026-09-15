@@ -217,7 +217,15 @@
                 <label><input type="checkbox" id="layer-earthquakes" onchange="toggleEarthquakes()"> 🔴 Live Earthquakes (M2.5+ past 24h)</label>
             </div>
 
-            <div class="panel macro-options">
+            <div class="panel macro-options" id="panel-3d-controls" style="display: none; border-color: #2dd4bf; box-shadow: 0 0 15px rgba(45, 212, 191, 0.15);">
+                <h3 style="color:#2dd4bf">🌐 3D Engine Controls</h3>
+                <label><input type="checkbox" id="toggle-lighting" checked onchange="update3DSettings()"> 🌞 Global Illumination</label>
+                <label><input type="checkbox" id="toggle-buildings" checked onchange="update3DSettings()"> 🏙️ Photorealistic 3D Cities</label>
+                <label><input type="checkbox" id="toggle-terrain" checked onchange="update3DSettings()"> ⛰️ Dramatic Terrain (1.5x)</label>
+                <label><input type="checkbox" id="toggle-hud" checked onchange="update3DSettings()"> 🕶️ Spy Lens HUD</label>
+            </div>
+
+            <div class="panel macro-options" id="panel-2d-filters">
                 <h3>🔍 Macro OSINT Filters</h3>
                 <label><input type="checkbox" id="layer-military" checked> 🔴 Military Bases & Outposts</label>
                 <label><input type="checkbox" id="layer-energy" checked> 🟠 Power Plants & Energy</label>

@@ -17,9 +17,8 @@ function enable3D() {
     document.getElementById('map').style.display = 'none';
     document.getElementById('cesiumContainer').style.display = 'block';
     document.getElementById('toggle3DBtn').textContent = '🗺️ 2D MODE';
-    document.getElementById('hud-overlay').style.display = 'block';
-    document.getElementById('scanlines').style.display = 'block';
-    document.getElementById('hud-text').style.display = 'block';
+    document.getElementById('panel-3d-controls').style.display = 'block';
+    if (window.update3DSettings) window.update3DSettings();
 
     if (!window.Cesium) {
         logIntel("Initializing 3D Orbital Engine (Cesium)...", "info");
@@ -74,11 +73,11 @@ function enable3D() {
             // 🔥 GOD'S EYE FEATURE: Photorealistic 3D Tiles & Buildings
             try {
                 if (Cesium.createGooglePhotorealistic3DTileset) {
-                    const googleTileset = await Cesium.createGooglePhotorealistic3DTileset();
-                    viewer.scene.primitives.add(googleTileset);
+                    window.cesiumBuildings = await Cesium.createGooglePhotorealistic3DTileset();
+                    viewer.scene.primitives.add(window.cesiumBuildings);
                 } else {
-                    const buildings = viewer.scene.primitives.add(Cesium.createOsmBuildings());
-                    buildings.style = new Cesium.Cesium3DTileStyle({
+                    window.cesiumBuildings = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+                    window.cesiumBuildings.style = new Cesium.Cesium3DTileStyle({
                         color: "color('#445566', 0.8)"
                     });
                 }
@@ -107,6 +106,7 @@ function disable3D() {
     document.getElementById('cesiumContainer').style.display = 'none';
     document.getElementById('map').style.display = 'block';
     document.getElementById('toggle3DBtn').textContent = '🌐 3D MODE';
+    document.getElementById('panel-3d-controls').style.display = 'none';
     document.getElementById('hud-overlay').style.display = 'none';
     document.getElementById('scanlines').style.display = 'none';
     document.getElementById('hud-text').style.display = 'none';
@@ -278,3 +278,17 @@ window.addEventListener('geoint:osint_filter_toggle', (e) => {
         cesiumOsintEntities[type].forEach(ent => ent.show = show);
     }
 });
+
+window.update3DSettings = function() {
+    if (!viewer) return;
+    viewer.scene.globe.enableLighting = document.getElementById('toggle-lighting').checked;
+    if (window.cesiumBuildings) {
+        window.cesiumBuildings.show = document.getElementById('toggle-buildings').checked;
+    }
+    viewer.scene.globe.terrainExaggeration = document.getElementById('toggle-terrain').checked ? 1.5 : 1.0;
+    
+    const showHud = document.getElementById('toggle-hud').checked;
+    document.getElementById('hud-overlay').style.display = showHud ? 'block' : 'none';
+    document.getElementById('scanlines').style.display = showHud ? 'block' : 'none';
+    document.getElementById('hud-text').style.display = showHud ? 'block' : 'none';
+};
