@@ -32,6 +32,16 @@
 
 ---
 
+
+## 🚨 LATEST UPDATE (v2.0) - GOD'S EYE 3D MODE
+The dashboard now features a massive upgrade: **God's Eye 3D Cinematic Mode**.
+Clicking the `🌐 3D MODE` button instantly morphs the interface into a tactical circular lens viewport tracking a photorealistic 3D globe powered by Cesium and OpenStreetMap.
+
+**New 3D Features:**
+- **✈️ Cinematic Cockpit Chase Camera**: The engine dynamically hooks into live global ADSB aviation data. Click `COCKPIT` to automatically lock onto a random aircraft in your sector and zoom into a 3D chase-camera view tracking it in real-time.
+- **🚀 Live Seismic Threat Tracking**: Click `SPACE MISSIONS` to fetch the live USGS Earthquake feed and plot M2.5+ seismic anomalies as glowing red spheres directly onto the 3D globe.
+- **◎ Dynamic Macro OSINT**: The `CONTACTS` and `DATA LAYERS` buttons interface directly with the AWS Serverless Proxy, utilizing the 3D viewport's exact coordinates to scan the Overpass API for Military, Energy, and Aviation infrastructure, rendering them as vertical tactical red laser beams piercing the sky.
+
 ## Overview
 
 **Overwatch GEOINT** is a highly scalable, event-driven tactical intelligence dashboard. It is capable of parsing global geospatial data in real-time, executing Computer Vision (CV) tracking models against satellite imagery, and maintaining extreme low-latency tracking of global infrastructure without relying on expensive, always-on servers.
