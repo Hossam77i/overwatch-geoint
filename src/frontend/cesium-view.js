@@ -65,14 +65,16 @@ function disable3D() {
 // Subscribe to state updates from app.js
 window.addEventListener('geoint:radar_update', (e) => {
     if (!viewer) return;
-    const states = e.detail.states; // expecting the raw states array
+    const features = e.detail.features; // now expecting GeoJSON features
     // Render in Cesium
     const now = Date.now();
-    states.forEach(state => {
-        const icao = state[0];
-        const lon = state[5];
-        const lat = state[6];
-        const alt = state[7] || 0;
+    features.forEach(feature => {
+        const props = feature.properties;
+        const coords = feature.geometry.coordinates;
+        const icao = props.icao;
+        const lon = coords[0];
+        const lat = coords[1];
+        const alt = coords[2] || 0;
         
         if (lon && lat) {
             if (cesiumEntities[icao]) {
@@ -82,7 +84,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                 cesiumEntities[icao] = viewer.entities.add({
                     position: Cesium.Cartesian3.fromDegrees(lon, lat, alt),
                     point: { pixelSize: 8, color: Cesium.Color.YELLOW },
-                    label: { text: state[1] || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
+                    label: { text: props.flight || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
                 });
                 cesiumEntities[icao].lastSeen = now;
             }

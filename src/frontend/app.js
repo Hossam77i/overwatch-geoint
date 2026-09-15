@@ -142,8 +142,8 @@
 
                     const data = proxyData.radar_data;
                     
-                    if (data && data.states && Array.isArray(data.states) && data.states.length > 0) {
-                        renderRadarData(data.states);
+                    if (data && data.type === "FeatureCollection" && data.features.length > 0) {
+                        renderRadarData(data.features);
                     } else if (!req.isBackground) {
                         logIntel(`[RADAR] Airspace clear. 0 active transponders inside this ${w},${s} sector.`, "warn");
                     }
@@ -203,18 +203,19 @@
         }
 
         function renderRadarData(states) {
-            window.dispatchEvent(new CustomEvent("geoint:radar_update", { detail: { states } }));
+            window.dispatchEvent(new CustomEvent("geoint:radar_update", { detail: { features: states } }));
             const now = Date.now();
-            states.forEach(state => {
-                const icao = state[0];
-                const callsign = (state[1] || "UNKNOWN").trim();
-                const originCountry = (state[2] || "UNKNOWN").replace(/'/g, "");
-                const lon = state[5], lat = state[6];
+            states.forEach(feature => {
+                const props = feature.properties;
+                const coords = feature.geometry.coordinates;
+                const icao = props.icao;
+                const callsign = props.flight || "UNKNOWN";
+                const originCountry = (props.origin || "UNKNOWN").replace(/'/g, "");
+                const lon = coords[0], lat = coords[1];
                 
                 if (lon && lat) {
-                    const alt_baro = state[7];
-                    const alt = (typeof alt_baro === 'number') ? alt_baro : 0;
-                    const vel = state[9] || 0, track = state[10] || 0;
+                    const alt = coords[2] || 0;
+                    const vel = props.velocity || 0, track = props.heading || 0;
                     
                     const htmlContent = `<div style="transform: rotate(${track}deg); color: #ffea00; font-size: 16px; text-shadow: 0 0 5px #000;">✈</div><div style="color: #00ffcc; font-size: 9px; font-family: monospace; white-space: nowrap; margin-top: -4px;">${callsign}</div>`;
                     

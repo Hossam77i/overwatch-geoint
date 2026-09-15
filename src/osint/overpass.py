@@ -72,14 +72,18 @@ def refresh_country(c, timeout=10):
                 la, lo = e["center"].get("lat"), e["center"].get("lon")
             if la is None:
                 continue
-            assets.append(
-                {
+            assets.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [round(float(lo), 4), round(float(la), 4)]
+                },
+                "properties": {
                     "t": cat, "n": nm[:80], "d": (tags.get("operator") or cat)[:60],
                     "s": "Operational", "c": "ib-op",
-                    "lat": round(float(la), 4), "lon": round(float(lo), 4),
-                    "q": nm[:60], "k": "macro",
+                    "q": nm[:60], "k": "macro"
                 }
-            )
+            })
         
         # Checkpoint partial progress
         if idx % 2 == 1 and len(assets) > 0:
