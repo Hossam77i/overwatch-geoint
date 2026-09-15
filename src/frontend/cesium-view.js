@@ -35,7 +35,7 @@ function enable3D() {
             
             viewer = new Cesium.Viewer('cesiumContainer', {
                 baseLayer: new Cesium.ImageryLayer(satelliteProvider),
-                terrainProvider: Cesium.createWorldTerrain(),
+                
                 baseLayerPicker: false,
                 geocoder: false,
                 homeButton: false,
@@ -53,14 +53,7 @@ function enable3D() {
             viewer.scene.skyAtmosphere.hueShift = -0.05;
             viewer.scene.globe.depthTestAgainstTerrain = true; // Enable depth testing for real 3D terrain
             
-            // 🔥 POWER FEATURE: 3D City Buildings (OSM)
-            try {
-                const buildings = viewer.scene.primitives.add(Cesium.createOsmBuildings());
-                // Style buildings slightly darker for a tactical look
-                buildings.style = new Cesium.Cesium3DTileStyle({
-                    color: "color('#445566', 0.8)"
-                });
-            } catch(e) {}
+            
             
             // Remove the default Cesium logo/credit text for a cleaner tactical look
             viewer.cesiumWidget.creditContainer.style.display = 'none';
