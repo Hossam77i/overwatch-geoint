@@ -6,9 +6,7 @@
     <title>Overwatch | Global Command</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-</div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
@@ -23,143 +21,6 @@
     
 
     <link rel="stylesheet" href="src/frontend/styles.css">
-
-    
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --neon-blue: #00f0ff;
-            --neon-red: #ff3333;
-            --glass-bg: rgba(5, 10, 20, 0.65);
-            --glass-border: rgba(0, 240, 255, 0.3);
-        }
-        body {
-            margin: 0; padding: 0;
-            font-family: 'Share Tech Mono', monospace;
-            background-color: #000;
-            color: var(--neon-blue);
-            overflow: hidden;
-        }
-        
-        /* 🔥 GOD'S EYE FEATURE: Full Screen Map with Floating Panels */
-        #map, #cesiumContainer {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            width: 100vw; height: 100vh;
-            z-index: 1;
-        }
-        
-        /* Floating Glass Panels */
-        .glass-panel {
-            position: absolute;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(8px);
-            border-radius: 4px;
-            padding: 15px;
-            z-index: 1000;
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
-        }
-        
-        #left-panel {
-            top: 20px; left: 20px;
-            width: 300px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        
-        #top-bar {
-            top: 20px; left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 15px;
-        }
-        
-        /* Futuristic Typography & Buttons */
-        h2, h3 {
-            margin-top: 0;
-            color: #fff;
-            text-shadow: 0 0 5px var(--neon-blue);
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-        
-        button {
-            background: rgba(0, 240, 255, 0.1);
-            border: 1px solid var(--neon-blue);
-            color: var(--neon-blue);
-            font-family: 'Share Tech Mono', monospace;
-            padding: 8px 15px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        button:hover {
-            background: var(--neon-blue);
-            color: #000;
-            box-shadow: 0 0 10px var(--neon-blue);
-        }
-        
-        button.danger {
-            border-color: var(--neon-red);
-            color: var(--neon-red);
-        }
-        button.danger:hover {
-            background: var(--neon-red);
-            color: #000;
-            box-shadow: 0 0 10px var(--neon-red);
-        }
-        
-        /* Center Crosshair */
-        #crosshair {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px; height: 40px;
-            border: 1px solid rgba(0, 240, 255, 0.5);
-            border-radius: 50%;
-            z-index: 999;
-            pointer-events: none;
-        }
-        #crosshair::before, #crosshair::after {
-            content: '';
-            position: absolute;
-            background: rgba(0, 240, 255, 0.5);
-        }
-        #crosshair::before { top: 50%; left: -10px; right: -10px; height: 1px; }
-        #crosshair::after { left: 50%; top: -10px; bottom: -10px; width: 1px; }
-        
-        /* Hide old sidebar and header */
-        header, .sidebar, .bottom-bar { display: none !important; }
-        
-        /* Custom Checkboxes */
-        label {
-            display: flex; align-items: center; gap: 10px;
-            margin-bottom: 8px; cursor: pointer;
-            font-size: 14px;
-        }
-        input[type="checkbox"] {
-            appearance: none; width: 16px; height: 16px;
-            border: 1px solid var(--neon-blue);
-            background: transparent;
-            cursor: pointer; position: relative;
-        }
-        input[type="checkbox"]:checked {
-            background: var(--neon-blue);
-            box-shadow: 0 0 5px var(--neon-blue);
-        }
-        
-        /* HUD Technical Text */
-        .hud-corner {
-            position: absolute; z-index: 1000; pointer-events: none;
-            font-size: 12px; color: rgba(255,255,255,0.7);
-        }
-        #hud-tr { top: 20px; right: 20px; text-align: right; }
-        #hud-bl { bottom: 20px; left: 20px; }
-        #hud-br { bottom: 20px; right: 20px; text-align: right; }
-    </style>
 
     <style>
         /* 🔥 GOD'S EYE FEATURE: Spy Satellite HUD Overlay */
@@ -195,54 +56,106 @@
         }
     </style>
 
+
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        /* 🔥 GOD'S EYE MODE OVERRIDES */
+        body.gods-eye-mode {
+            font-family: 'Share Tech Mono', monospace !important;
+            color: #00f0ff !important;
+        }
+        
+        body.gods-eye-mode header, 
+        body.gods-eye-mode .bottom-bar {
+            display: none !important;
+        }
+        
+        body.gods-eye-mode .sidebar {
+            background: rgba(5, 10, 20, 0.65) !important;
+            border-right: 1px solid rgba(0, 240, 255, 0.3) !important;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+            position: absolute;
+            z-index: 1000;
+            height: 90vh;
+            top: 20px; left: 20px;
+            border-radius: 8px;
+        }
+        
+        body.gods-eye-mode .main-content {
+            margin-left: 0 !important; /* Remove sidebar margin so map is full screen */
+        }
+        
+        body.gods-eye-mode #map, 
+        body.gods-eye-mode #cesiumContainer {
+            width: 100vw !important;
+            height: 100vh !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 1;
+        }
+
+        body.gods-eye-mode .panel {
+            background: transparent !important;
+            border-color: rgba(0, 240, 255, 0.3) !important;
+        }
+        
+        body.gods-eye-mode h3 { color: #fff !important; text-shadow: 0 0 5px #00f0ff; letter-spacing: 1px; }
+
+        /* Floating Top Bar for buttons */
+        #gods-eye-top-bar {
+            display: none;
+            position: absolute;
+            top: 20px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            gap: 15px;
+        }
+        body.gods-eye-mode #gods-eye-top-bar { display: flex; }
+        
+        #gods-eye-top-bar button {
+            background: rgba(5, 10, 20, 0.65); border: 1px solid rgba(0, 240, 255, 0.5);
+            color: #00f0ff; font-family: 'Share Tech Mono', monospace; padding: 10px 20px;
+            cursor: pointer; backdrop-filter: blur(8px); text-transform: uppercase; border-radius: 4px;
+        }
+        #gods-eye-top-bar button:hover { background: #00f0ff; color: #000; box-shadow: 0 0 10px #00f0ff; }
+        #gods-eye-top-bar button.danger { border-color: #ff3333; color: #ff3333; }
+        #gods-eye-top-bar button.danger:hover { background: #ff3333; color: #000; box-shadow: 0 0 10px #ff3333; }
+        
+        /* HUD Elements */
+        .hud-overlay-element { display: none; z-index: 999; pointer-events: none; }
+        body.gods-eye-mode .hud-overlay-element { display: block; }
+        
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 40px; height: 40px; border: 1px solid rgba(0, 240, 255, 0.5); border-radius: 50%;
+        }
+        #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(0, 240, 255, 0.5); }
+        #crosshair::before { top: 50%; left: -10px; right: -10px; height: 1px; }
+        #crosshair::after { left: 50%; top: -10px; bottom: -10px; width: 1px; }
+        
+        .hud-corner { position: absolute; font-size: 12px; color: rgba(255,255,255,0.7); font-family: 'Share Tech Mono', monospace; }
+        #hud-tr { top: 20px; right: 20px; text-align: right; }
+        #hud-bl { bottom: 20px; left: 20px; }
+        #hud-br { bottom: 20px; right: 20px; text-align: right; }
+    </style>
+
 </head>
 
 <body>
 
-    <!-- 🔥 GOD'S EYE UI -->
-    <div id="crosshair"></div>
-    <div class="hud-corner" id="hud-tr">
-        REC 2026-09-03 22:45:16Z<br>
-        ORB: 47416 PASS: DESC-254
-    </div>
-    <div class="hud-corner" id="hud-bl">
-        COLL: 22:46:17Z<br>
-        L MGRS 37°
-    </div>
-    <div class="hud-corner" id="hud-br">
-        GSD: 2.82M NIIRS: 3.5<br>
-        ALT: 7539M SUN: 41.9° EL
-    </div>
-    
-    <div class="glass-panel" id="top-bar">
-        <button onclick="toggle3DView()" id="toggle3DBtn">🌐 3D MODE</button>
+    <!-- 🔥 GOD'S EYE UI ELEMENTS -->
+    <div id="gods-eye-top-bar">
+        <button onclick="toggle3DView()" id="toggle3DBtn-glass">🗺️ 2D MODE</button>
         <button onclick="toggleLiveRadar()">📡 LIVE AVIATION</button>
         <button class="danger" onclick="executeMacroOSINT()">🔴 MACRO OSINT SCAN</button>
     </div>
     
-    <div class="glass-panel" id="left-panel">
-        <h2>GOD'S EYE</h2>
-        <div style="font-size:10px; color:#aaa; margin-bottom: 20px;">NO PLACE LEFT BEHIND</div>
-        
-        <h3>DATA LAYERS</h3>
-        <label><input type="checkbox" id="layer-earthquakes" onchange="toggleEarthquakes()"> Live Earthquakes</label>
-        
-        <h3 style="margin-top:20px;">OSINT FILTERS</h3>
-        <label><input type="checkbox" id="layer-military" checked> Military Bases</label>
-        <label><input type="checkbox" id="layer-energy" checked> Energy Infrastructure</label>
-        <label><input type="checkbox" id="layer-aviation" checked> Aviation Hubs</label>
-        <label><input type="checkbox" id="layer-roads" checked> Highways</label>
-        
-        <div id="panel-3d-controls" style="display:none; margin-top:20px; border-top: 1px solid var(--glass-border); padding-top: 15px;">
-            <h3>VISUAL PRESETS</h3>
-            <label><input type="checkbox" id="toggle-lighting" checked onchange="update3DSettings()"> Global Illumination</label>
-            <label><input type="checkbox" id="toggle-buildings" checked onchange="update3DSettings()"> 3D Cities</label>
-            <label><input type="checkbox" id="toggle-terrain" checked onchange="update3DSettings()"> Dramatic Terrain</label>
-            <label><input type="checkbox" id="toggle-hud" checked onchange="update3DSettings()"> Optics Overlay</label>
-        </div>
-    </div>
-
-<div style='display:none;' id='legacy-ui-wrapper'>
+    <div class="hud-overlay-element" id="crosshair"></div>
+    <div class="hud-overlay-element hud-corner" id="hud-tr">REC 2026-09-03 22:45:16Z<br>ORB: 47416 PASS: DESC-254</div>
+    <div class="hud-overlay-element hud-corner" id="hud-bl">COLL: 22:46:17Z<br>L MGRS 37°</div>
+    <div class="hud-overlay-element hud-corner" id="hud-br">GSD: 2.82M NIIRS: 3.5<br>ALT: 7539M SUN: 41.9° EL</div>
 
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>

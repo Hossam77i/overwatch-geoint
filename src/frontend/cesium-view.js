@@ -3,6 +3,7 @@
 let viewer = null;
 let cesiumEntities = {};
 let is3DMode = false;
+    document.body.classList.remove('gods-eye-mode');
 
 window.toggle3DView = function() {
     if (!is3DMode) {
@@ -14,6 +15,7 @@ window.toggle3DView = function() {
 
 function enable3D() {
     is3DMode = true;
+    document.body.classList.add('gods-eye-mode');
     document.getElementById('map').style.display = 'none';
     document.getElementById('cesiumContainer').style.display = 'block';
     document.getElementById('toggle3DBtn').textContent = '🗺️ 2D MODE';
@@ -103,6 +105,7 @@ function enable3D() {
 
 function disable3D() {
     is3DMode = false;
+    document.body.classList.remove('gods-eye-mode');
     document.getElementById('cesiumContainer').style.display = 'none';
     document.getElementById('map').style.display = 'block';
     document.getElementById('toggle3DBtn').textContent = '🌐 3D MODE';
