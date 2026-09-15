@@ -29,7 +29,7 @@ def _handler(event, context):
             "body": "",
         }
 
-    logger.info(json.dumps({"event": "invocation", "message": "Overwatch GEOINT Triggered"})) - HIGH RES TACTICAL MACRO MODE.")
+    logger.info(json.dumps({"event": "invocation", "message": "Overwatch GEOINT Triggered - HIGH RES TACTICAL MACRO MODE"}))
 
     try:
         body_str = event.get("body")
