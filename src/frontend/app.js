@@ -182,17 +182,26 @@
                     lamax = Cesium.Math.toDegrees(rect.north);
                     lomin = Cesium.Math.toDegrees(rect.west);
                     lomax = Cesium.Math.toDegrees(rect.east);
-                    
-                    // Pad by 50% for off-screen aircraft
                     const w_pad = Math.abs(lomax - lomin) * 0.5;
                     const h_pad = Math.abs(lamax - lamin) * 0.5;
                     lamin -= h_pad; lamax += h_pad;
                     lomin -= w_pad; lomax += w_pad;
+                } else {
+                    // Fallback: If camera is pitched (Gods Eye), computeViewRectangle returns undefined.
+                    // Instead, use the exact camera center and pad by an arbitrary large radius.
+                    const carto = window.viewer.camera.positionCartographic;
+                    const centerLat = Cesium.Math.toDegrees(carto.latitude);
+                    const centerLon = Cesium.Math.toDegrees(carto.longitude);
+                    // Approximate size based on height
+                    let span = 5.0; // 5 degrees is ~500km
+                    if (carto.height > 500000) span = 15.0;
+                    if (carto.height > 2000000) span = 30.0;
+                    
+                    lamin = centerLat - span; lamax = centerLat + span;
+                    lomin = centerLon - span; lomax = centerLon + span;
                 }
-            }
-            
-            if (lamin === undefined) {
-                const bounds = map.getBounds().pad(1.5);
+            } else if (window.map) {
+                const bounds = window.map.getBounds().pad(1.5);
                 lamin = bounds.getSouth(); lomin = bounds.getWest();
                 lamax = bounds.getNorth(); lomax = bounds.getEast();
             }
