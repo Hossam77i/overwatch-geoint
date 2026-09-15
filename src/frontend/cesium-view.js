@@ -61,8 +61,6 @@ function enable3D() {
             viewer.selectedEntityChanged.addEventListener(function(selectedEntity) {
                 if (selectedEntity && selectedEntity.path) {
                     viewer.trackedEntity = selectedEntity;
-                    // Zoom in closely behind the aircraft for a cinematic cockpit/chase view
-                    viewer.zoomTo(selectedEntity, new Cesium.HeadingPitchRange(Cesium.Math.toRadians(0), Cesium.Math.toRadians(-15), 5000));
                 } else {
                     viewer.trackedEntity = undefined;
                 }
@@ -152,8 +150,8 @@ window.addEventListener('geoint:radar_update', (e) => {
                 
                 cesiumEntities[icao] = viewer.entities.add({
                     position: positionProperty,
-                    point: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 2 },
-                    label: { text: props.flight || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) },
+                    point: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+                    label: { text: props.flight || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9), disableDepthTestDistance: Number.POSITIVE_INFINITY },
                     // 🔥 POWER FEATURE: Tactical Flight Trails
                     path: {
                         resolution: 1,
@@ -163,7 +161,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                         }),
                         width: 3,
                         leadTime: 0,
-                        trailTime: 60 // Leaves a 60-second trail behind the aircraft
+                        trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000) // Leaves a 60-second trail behind the aircraft
                     }
                 });
                 cesiumEntities[icao].lastSeen = now;
@@ -223,7 +221,7 @@ function syncDataTo3D() {
                         cesiumEntities[icao] = viewer.entities.add({
                             position: positionProperty,
                             point: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 },
-                            path: { resolution: 1, material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: Cesium.Color.YELLOW }), width: 3, leadTime: 0, trailTime: 60 },
+                            path: { resolution: 1, material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: Cesium.Color.YELLOW }), width: 3, leadTime: 0, trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000) },
                             description: `ICAO: ${icao}<br>Flight: ${props.callsign || 'N/A'}`
                         });
                     }
@@ -304,8 +302,8 @@ window.addEventListener('geoint:radar_update', (e) => {
                 
                 cesiumEntities[icao] = viewer.entities.add({
                     position: positionProperty,
-                    point: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 2 },
-                    label: { text: props.flight || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) },
+                    point: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY },
+                    label: { text: props.flight || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9), disableDepthTestDistance: Number.POSITIVE_INFINITY },
                     // 🔥 POWER FEATURE: Tactical Flight Trails
                     path: {
                         resolution: 1,
@@ -315,7 +313,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                         }),
                         width: 3,
                         leadTime: 0,
-                        trailTime: 60 // Leaves a 60-second trail behind the aircraft
+                        trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000) // Leaves a 60-second trail behind the aircraft
                     }
                 });
                 cesiumEntities[icao].lastSeen = now;
@@ -471,7 +469,7 @@ window.enterCockpitMode = function() {
             document.getElementById('radarBtn').click();
         } else {
             if (window.logIntel) logIntel("Scanning sector for aircraft...", "info");
-            if (window.fetchLiveRadar) window.fetchLiveRadar(true);
+            if (window.fetchLiveRadar) { window.lastRadarFetch = 0; window.fetchLiveRadar(true); }
         }
         
         setTimeout(() => {

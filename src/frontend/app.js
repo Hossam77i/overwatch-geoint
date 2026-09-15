@@ -88,7 +88,7 @@
 
         const radarQueue = [];
         let radarQueueProcessing = false;
-        let lastRadarFetch = 0;
+        window.lastRadarFetch = 0; let lastRadarFetch = 0;
         let activePlanes = {}; // Store planes by ICAO for smooth updates
 
         async function processRadarQueue() {
@@ -164,8 +164,8 @@
             if (!radarActive) return;
             
             const now = Date.now();
-            if (isPan && now - lastRadarFetch < 3000) return; 
-            if (isPan) lastRadarFetch = now;
+            if (isPan && now - window.lastRadarFetch < 3000) return; 
+            if (isPan) lastRadarFetch = now; window.lastRadarFetch = now;
             
             if (isPan) {
                 radarQueue.length = 0; 
