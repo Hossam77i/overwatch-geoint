@@ -310,27 +310,54 @@ window.update3DSettings = function() {
     document.getElementById('hud-text').style.display = showHud ? 'block' : 'none';
 };
 
-window.enterCockpitMode = function() {
+window.enterCockpitMode = async function() {
     if (!viewer) return;
     const planeIds = Object.keys(cesiumEntities).filter(k => cesiumEntities[k].path);
-    if (planeIds.length === 0) {
-        if (!window.radarActive) {
-            if (window.logIntel) logIntel("Activating Live Radar for Cockpit Mode...", "info");
-            document.getElementById('radarBtn').click();
-        } else {
-            if (window.logIntel) logIntel("Scanning sector for aircraft...", "info");
-            if (window.fetchLiveRadar) { window.lastRadarFetch = 0; window.fetchLiveRadar(true); }
-        }
-        
-        setTimeout(() => {
-            const newPlaneIds = Object.keys(cesiumEntities).filter(k => cesiumEntities[k].path);
-            if (newPlaneIds.length > 0) {
-                viewer.selectedEntity = cesiumEntities[newPlaneIds[Math.floor(Math.random() * newPlaneIds.length)]];
-            } else {
-                alert("No aircraft detected in this sector right now. Try panning the map.");
-            }
-        }, 10000);
+    if (planeIds.length > 0) {
+        viewer.selectedEntity = cesiumEntities[planeIds[Math.floor(Math.random() * planeIds.length)]];
         return;
     }
-    viewer.selectedEntity = cesiumEntities[planeIds[Math.floor(Math.random() * planeIds.length)]];
+    
+    const canvas = window.viewer.scene.canvas;
+    const center = new Cesium.Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2);
+    const pickPos = window.viewer.camera.pickEllipsoid(center, window.viewer.scene.globe.ellipsoid);
+    const carto = window.viewer.camera.positionCartographic;
+    let centerLat = Cesium.Math.toDegrees(carto.latitude);
+    let centerLon = Cesium.Math.toDegrees(carto.longitude);
+    if (pickPos) {
+        const groundCarto = Cesium.Cartographic.fromCartesian(pickPos);
+        centerLat = Cesium.Math.toDegrees(groundCarto.latitude);
+        centerLon = Cesium.Math.toDegrees(groundCarto.longitude);
+    }
+    let span = carto.height > 2000000 ? 30.0 : 15.0;
+    
+    const req = {
+        lat: centerLat, lon: centerLon, 
+        width_deg: span*2, height_deg: span*2, filter: 'radar'
+    };
+    
+    try {
+        const res = await fetch("https://yyp1jlzcjf.execute-api.us-east-1.amazonaws.com/trigger-overwatch", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req)
+        });
+        const proxyData = await res.json();
+        const data = proxyData.radar_data;
+        if (data && data.features && data.features.length > 0) {
+            window.dispatchEvent(new CustomEvent("geoint:radar_update", { detail: { features: data.features } }));
+            setTimeout(() => {
+                const newPlaneIds = Object.keys(cesiumEntities).filter(k => cesiumEntities[k].path);
+                if (newPlaneIds.length > 0) {
+                    viewer.selectedEntity = cesiumEntities[newPlaneIds[Math.floor(Math.random() * newPlaneIds.length)]];
+                } else {
+                    alert("No aircraft detected in this sector right now. Try panning the map.");
+                }
+            }, 500);
+        } else {
+            alert("No aircraft detected in this sector right now. Try panning the map.");
+        }
+    } catch(e) {
+        alert("Radar scan failed: " + e.message);
+    }
 };
