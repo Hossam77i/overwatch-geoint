@@ -1279,7 +1279,7 @@
                             }
                         }
                         
-                        return `<span style="color:var(--info); font-family:monospace;">[${timeStr}]</span> <strong style="color:var(--accent-hi);">${threatType}</strong> — ${details} &nbsp;&nbsp;<span style="color:#52525b; font-size:0.8em;">(SOURCE: ${t.ip || 'GLOBAL-INTEL'})</span>`;
+                        return `<span style="color:var(--info); font-family:monospace;">[${timeStr}]</span> <strong style="color:var(--accent-hi);">${threatType}</strong> — ${details} &nbsp;&nbsp;<span style="color:#52525b; font-size:0.8em;">(SOURCE: ${t.ip ? 'CLASSIFIED-IP' : 'GLOBAL-INTEL'})</span>`;
                     }).join(' &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ');
                     marquee.innerHTML = text;
                 }
