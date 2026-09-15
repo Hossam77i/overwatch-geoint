@@ -66,6 +66,25 @@ function enable3D() {
                 if (selectedEntity && selectedEntity.path) {
                     viewer.trackedEntity = selectedEntity;
                     if (selectedEntity.label) selectedEntity.label.show = true;
+                    
+                    // Fetch Aircraft Photo
+                    const photoContainer = document.getElementById('tl-photo-container');
+                    if (photoContainer && selectedEntity.rawTelemetry) {
+                        const icao = selectedEntity.rawTelemetry.icao;
+                        document.getElementById('tl-icao').innerText = icao;
+                        photoContainer.style.display = 'none';
+                        photoContainer.style.backgroundImage = 'none';
+                        
+                        fetch(`https://api.planespotters.net/pub/photos/hex/${icao}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data && data.photos && data.photos.length > 0) {
+                                    photoContainer.style.display = 'block';
+                                    photoContainer.style.backgroundImage = `url(${data.photos[0].thumbnail_large.src})`;
+                                }
+                            })
+                            .catch(err => console.log("No photo found for", icao));
+                    }
                 } else {
                     viewer.trackedEntity = undefined;
                 }
@@ -203,7 +222,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                 const type = props.t || "Unknown";
                 const squawk = props.squawk || "None";
                 
-                const tdata = { alt: altM, speed: speed, heading: headingDeg, type: type, squawk: squawk };
+                const tdata = { alt: altM, speed: speed, heading: headingDeg, type: type, squawk: squawk, icao: icao };
                 
                 cesiumEntities[icao] = viewer.entities.add({
                     position: positionProperty,
@@ -232,7 +251,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                         material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: Cesium.Color.YELLOW }),
                         width: 3, leadTime: 0, trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000)
                     },
-                    viewFrom: new Cesium.Cartesian3(0, -5000, 1500)
+                    viewFrom: new Cesium.Cartesian3(0, -3000, 800)
                 });
 
 
