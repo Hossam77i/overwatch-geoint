@@ -12,10 +12,10 @@ def test_adsb_parsing(mock_urlopen):
     mock_urlopen.return_value = MockResponse()
     
     result = adsb.get_radar_data(40.0, -74.0, 50)
-    assert 'states' in result
-    assert len(result['states']) == 1
-    assert result['states'][0][0] == 'A123'
-    assert result['states'][0][1] == 'TEST'
+    assert 'features' in result
+    assert len(result['features']) == 1
+    assert result['features'][0]['properties']['icao'] == 'A123'
+    assert result['features'][0]['properties']['flight'] == 'TEST'
 
 @patch('requests.post')
 @patch('boto3.resource')
