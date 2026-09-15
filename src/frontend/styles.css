@@ -188,6 +188,9 @@
     
 /* TACTICAL CESIUM INFOBOX */
 .cesium-infoBox {
+    z-index: 9999 !important;
+    top: 50px !important;
+    right: 50px !important;
     background: rgba(0, 15, 20, 0.9) !important;
     border: 1px solid var(--accent) !important;
     box-shadow: 0 0 15px rgba(0, 255, 204, 0.3) !important;
