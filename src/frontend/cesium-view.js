@@ -98,6 +98,7 @@ function enable3D() {
             
             // Remove the default Cesium logo/credit text for a cleaner tactical look
             viewer.cesiumWidget.creditContainer.style.display = 'none';
+            window.viewer = viewer;
             
             logIntel('3D Engine Online.', 'success');
             syncDataTo3D();
@@ -318,10 +319,10 @@ window.enterCockpitMode = async function() {
         return;
     }
     
-    const canvas = window.viewer.scene.canvas;
+    const canvas = viewer.scene.canvas;
     const center = new Cesium.Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2);
-    const pickPos = window.viewer.camera.pickEllipsoid(center, window.viewer.scene.globe.ellipsoid);
-    const carto = window.viewer.camera.positionCartographic;
+    const pickPos = viewer.camera.pickEllipsoid(center, viewer.scene.globe.ellipsoid);
+    const carto = viewer.camera.positionCartographic;
     let centerLat = Cesium.Math.toDegrees(carto.latitude);
     let centerLon = Cesium.Math.toDegrees(carto.longitude);
     if (pickPos) {
