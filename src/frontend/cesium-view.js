@@ -44,6 +44,13 @@ function enable3D() {
                 infoBox: false
             });
             
+            // 🔥 POWER FEATURE: Dynamic Day/Night Cycle based on real sun position
+            viewer.scene.globe.enableLighting = true;
+            
+            // 🔥 POWER FEATURE: High-resolution atmosphere rendering
+            viewer.scene.skyAtmosphere.hueShift = -0.05;
+            viewer.scene.globe.depthTestAgainstTerrain = false;
+            
             // Remove the default Cesium logo/credit text for a cleaner tactical look
             viewer.cesiumWidget.creditContainer.style.display = 'none';
             
@@ -77,16 +84,36 @@ window.addEventListener('geoint:radar_update', (e) => {
         const alt = coords[2] || 0;
         
         if (lon && lat) {
+            const position = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+            const time = Cesium.JulianDate.now();
+            
             if (cesiumEntities[icao]) {
-                cesiumEntities[icao].position = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+                // 🔥 POWER FEATURE: Smooth interpolation between radar pings
+                cesiumEntities[icao].position.addSample(time, position);
                 cesiumEntities[icao].lastSeen = now;
             } else {
+                const positionProperty = new Cesium.SampledPositionProperty();
+                positionProperty.addSample(time, position);
+                
                 cesiumEntities[icao] = viewer.entities.add({
-                    position: Cesium.Cartesian3.fromDegrees(lon, lat, alt),
-                    point: { pixelSize: 8, color: Cesium.Color.YELLOW },
-                    label: { text: props.flight || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
+                    position: positionProperty,
+                    point: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 2 },
+                    label: { text: props.flight || icao, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineWidth: 2, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) },
+                    // 🔥 POWER FEATURE: Tactical Flight Trails
+                    path: {
+                        resolution: 1,
+                        material: new Cesium.PolylineGlowMaterialProperty({
+                            glowPower: 0.1,
+                            color: Cesium.Color.YELLOW
+                        }),
+                        width: 3,
+                        leadTime: 0,
+                        trailTime: 60 // Leaves a 60-second trail behind the aircraft
+                    }
                 });
                 cesiumEntities[icao].lastSeen = now;
+                // Add interpolation settings
+                cesiumEntities[icao].position.forwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
             }
         }
     });
@@ -107,7 +134,12 @@ function syncDataTo3D() {
         const alt = Math.max(10000, 20000000 / Math.pow(2, window.map.getZoom()));
         viewer.camera.flyTo({
             destination: Cesium.Cartesian3.fromDegrees(center.lng, center.lat, alt),
-            duration: 1.0
+            orientation: {
+                heading: Cesium.Math.toRadians(0.0),
+                pitch: Cesium.Math.toRadians(-60.0), // 30-degree tilt for cinematic 3D perspective
+                roll: 0.0
+            },
+            duration: 1.5
         });
     }
 }
@@ -128,8 +160,20 @@ window.addEventListener('geoint:osint_update', (e) => {
         const coords = a.geometry ? a.geometry.coordinates : [a.lon, a.lat];
         viewer.entities.add({
             position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1]),
-            point: { pixelSize: 10, color: Cesium.Color.RED },
-            label: { text: props.name || props.n, font: '10pt monospace', style: Cesium.LabelStyle.FILL_AND_OUTLINE, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
+            // 🔥 POWER FEATURE: Vertical tactical beam (laser) marking the target location
+            polyline: {
+                positions: [
+                    Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
+                    Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 15000)
+                ],
+                width: 2,
+                material: new Cesium.PolylineGlowMaterialProperty({
+                    glowPower: 0.2,
+                    color: Cesium.Color.RED.withAlpha(0.7)
+                })
+            },
+            point: { pixelSize: 12, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+            label: { text: props.name || props.n, font: 'bold 11pt monospace', fillColor: Cesium.Color.WHITE, style: Cesium.LabelStyle.FILL_AND_OUTLINE, outlineColor: Cesium.Color.BLACK, outlineWidth: 3, verticalOrigin: Cesium.VerticalOrigin.BOTTOM, pixelOffset: new Cesium.Cartesian2(0, -9) }
         });
     });
 });
