@@ -447,3 +447,23 @@ window.update3DSettings = function() {
     document.getElementById('scanlines').style.display = showHud ? 'block' : 'none';
     document.getElementById('hud-text').style.display = showHud ? 'block' : 'none';
 };
+
+window.enterCockpitMode = function() {
+    if (!viewer) return;
+    const planeIds = Object.keys(cesiumEntities).filter(k => cesiumEntities[k].path);
+    if (planeIds.length === 0) {
+        if (window.logIntel) logIntel("Activating Live Radar for Cockpit Mode...", "info");
+        document.getElementById('radarBtn').click();
+        
+        setTimeout(() => {
+            const newPlaneIds = Object.keys(cesiumEntities).filter(k => cesiumEntities[k].path);
+            if (newPlaneIds.length > 0) {
+                viewer.selectedEntity = cesiumEntities[newPlaneIds[Math.floor(Math.random() * newPlaneIds.length)]];
+            } else {
+                alert("No aircraft detected in this sector right now. Try panning the map.");
+            }
+        }, 3000);
+        return;
+    }
+    viewer.selectedEntity = cesiumEntities[planeIds[Math.floor(Math.random() * planeIds.length)]];
+};
