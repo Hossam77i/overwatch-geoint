@@ -28,12 +28,14 @@ function enable3D() {
         document.head.appendChild(link);
         
         script.onload = () => {
-            const osmProvider = new Cesium.UrlTemplateImageryProvider({
-                url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            const satelliteProvider = new Cesium.UrlTemplateImageryProvider({
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                maximumLevel: 19
             });
             
             viewer = new Cesium.Viewer('cesiumContainer', {
-                baseLayer: new Cesium.ImageryLayer(osmProvider),
+                baseLayer: new Cesium.ImageryLayer(satelliteProvider),
+                terrainProvider: Cesium.createWorldTerrain(),
                 baseLayerPicker: false,
                 geocoder: false,
                 homeButton: false,
@@ -49,7 +51,16 @@ function enable3D() {
             
             // 🔥 POWER FEATURE: High-resolution atmosphere rendering
             viewer.scene.skyAtmosphere.hueShift = -0.05;
-            viewer.scene.globe.depthTestAgainstTerrain = false;
+            viewer.scene.globe.depthTestAgainstTerrain = true; // Enable depth testing for real 3D terrain
+            
+            // 🔥 POWER FEATURE: 3D City Buildings (OSM)
+            try {
+                const buildings = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+                // Style buildings slightly darker for a tactical look
+                buildings.style = new Cesium.Cesium3DTileStyle({
+                    color: "color('#445566', 0.8)"
+                });
+            } catch(e) {}
             
             // Remove the default Cesium logo/credit text for a cleaner tactical look
             viewer.cesiumWidget.creditContainer.style.display = 'none';
@@ -89,7 +100,7 @@ window.addEventListener('geoint:radar_update', (e) => {
             
             if (cesiumEntities[icao]) {
                 // 🔥 POWER FEATURE: Smooth interpolation between radar pings
-                cesiumEntities[icao].position.addSample(time, position);
+                try { cesiumEntities[icao].position.addSample(time, position); } catch(e) {}
                 cesiumEntities[icao].lastSeen = now;
             } else {
                 const positionProperty = new Cesium.SampledPositionProperty();
