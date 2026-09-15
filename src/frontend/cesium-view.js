@@ -192,3 +192,34 @@ window.addEventListener('geoint:osint_update', (e) => {
         });
     });
 });
+
+let cesiumEarthquakes = [];
+
+window.addEventListener('geoint:earthquakes', (e) => {
+    if (!viewer) return;
+    const data = e.detail;
+    
+    data.features.forEach(feature => {
+        const coords = feature.geometry.coordinates;
+        const mag = feature.properties.mag;
+        
+        const ent = viewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1], 0),
+            ellipse: {
+                semiMinorAxis: Math.max(10000, mag * 8000),
+                semiMajorAxis: Math.max(10000, mag * 8000),
+                material: Cesium.Color.ORANGE.withAlpha(0.4),
+                outline: true,
+                outlineColor: Cesium.Color.RED
+            },
+            point: { pixelSize: mag * 3, color: Cesium.Color.RED, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 }
+        });
+        cesiumEarthquakes.push(ent);
+    });
+});
+
+window.addEventListener('geoint:earthquakes_toggle', (e) => {
+    if (!viewer) return;
+    const show = e.detail.show;
+    cesiumEarthquakes.forEach(ent => ent.show = show);
+});
