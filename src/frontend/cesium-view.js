@@ -51,7 +51,7 @@ function enable3D() {
                 navigationHelpButton: false,
                 animation: false,
                 timeline: false,
-                infoBox: true
+                infoBox: false
             });
             
             // 🔥 POWER FEATURE: Dynamic Day/Night Cycle based on real sun position
@@ -60,12 +60,47 @@ function enable3D() {
             
             // 🔥 GOD'S EYE FEATURE: Cockpit View / Entity Tracking
             viewer.selectedEntityChanged.addEventListener(function(selectedEntity) {
+                for (let id in cesiumEntities) {
+                    if (cesiumEntities[id].label) cesiumEntities[id].label.show = false;
+                }
                 if (selectedEntity && selectedEntity.path) {
                     viewer.trackedEntity = selectedEntity;
+                    if (selectedEntity.label) selectedEntity.label.show = true;
                 } else {
                     viewer.trackedEntity = undefined;
                 }
             });
+
+            viewer.scene.preRender.addEventListener(function() {
+                const overlay = document.getElementById('target-lock-overlay');
+                if (!overlay || !viewer) return;
+                
+                if (viewer.selectedEntity && viewer.selectedEntity.position) {
+                    const time = viewer.clock.currentTime;
+                    const position = viewer.selectedEntity.position.getValue(time);
+                    if (position) {
+                        const canvasPos = Cesium.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, position);
+                        if (canvasPos) {
+                            overlay.style.display = 'block';
+                            overlay.style.left = (canvasPos.x + 50) + 'px';
+                            overlay.style.top = (canvasPos.y + 50) + 'px';
+                            
+                            const name = viewer.selectedEntity.name;
+                            const t = viewer.selectedEntity.rawTelemetry;
+                            if (t) {
+                                document.getElementById('tl-title').innerText = name;
+                                document.getElementById('tl-line1').innerHTML = `ALT <b>${t.alt} ft</b> &bull; SPD <b>${t.speed} kt</b>`;
+                                document.getElementById('tl-line2').innerHTML = `HDG <b>${t.heading}&deg;</b> &bull; TYP <b>${t.type}</b> &bull; SQK <b>${t.squawk}</b>`;
+                            }
+                        } else {
+                            overlay.style.display = 'none';
+                        }
+                    }
+                } else {
+                    overlay.style.display = 'none';
+                }
+            });
+
             
             // 🔥 POWER FEATURE: High-resolution atmosphere rendering
             viewer.scene.skyAtmosphere.hueShift = -0.05;
@@ -160,30 +195,31 @@ window.addEventListener('geoint:radar_update', (e) => {
                 positionProperty.forwardExtrapolationType = Cesium.ExtrapolationType.EXTRAPOLATE;
                 
                 
+                
                 const callsign = props.flight || icao;
                 const speed = props.speed || props.gs || 0;
-                const altM = Math.round((alt || 0) * 3.28084); // meters to feet for display
+                const altM = Math.round((alt || 0) * 3.28084);
                 const headingDeg = props.heading || props.track || 0;
                 const type = props.t || "Unknown";
                 const squawk = props.squawk || "None";
                 
-                const descHTML = `
-                    <table class="cesium-infoBox-defaultTable">
-                        <tbody>
-                            <tr><th>Flight</th><td>${callsign}</td></tr>
-                            <tr><th>Altitude</th><td>${altM} ft</td></tr>
-                            <tr><th>Speed</th><td>${speed} kts</td></tr>
-                            <tr><th>Heading</th><td>${headingDeg}°</td></tr>
-                            <tr><th>Type</th><td>${type}</td></tr>
-                            <tr><th>Squawk</th><td>${squawk}</td></tr>
-                        </tbody>
-                    </table>
-                `;
+                const tdata = { alt: altM, speed: speed, heading: headingDeg, type: type, squawk: squawk };
                 
                 cesiumEntities[icao] = viewer.entities.add({
                     position: positionProperty,
-                    description: descHTML,
                     name: callsign,
+                    rawTelemetry: tdata,
+                    label: { 
+                        text: `${callsign} FL${Math.round(altM/100)}`, 
+                        font: '10pt monospace', 
+                        fillColor: Cesium.Color.CYAN, 
+                        style: Cesium.LabelStyle.FILL_AND_OUTLINE, 
+                        outlineColor: Cesium.Color.BLACK, 
+                        outlineWidth: 3, 
+                        verticalOrigin: Cesium.VerticalOrigin.BOTTOM, 
+                        pixelOffset: new Cesium.Cartesian2(20, -10), 
+                        disableDepthTestDistance: Number.POSITIVE_INFINITY, show: false 
+                    },
                     billboard: {
                         image: 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22yellow%22%20stroke%3D%22black%22%20stroke-width%3D%221%22%20d%3D%22M21%2C16V14L13%2C9V3.5C13%2C2.67%2012.33%2C2%2011.5%2C2C10.67%2C2%2010%2C2.67%2010%2C3.5V9L2%2C14V16L10%2C13.5V19L8%2C20.5V22L11.5%2C21L15%2C22V20.5L13%2C19V13.5L21%2C16Z%22%20%2F%3E%3C%2Fsvg%3E',
                         scale: 1.0,
@@ -193,16 +229,12 @@ window.addEventListener('geoint:radar_update', (e) => {
                     },
                     path: {
                         resolution: 1,
-                        material: new Cesium.PolylineGlowMaterialProperty({
-                            glowPower: 0.1,
-                            color: Cesium.Color.YELLOW
-                        }),
-                        width: 3,
-                        leadTime: 0,
-                        trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000)
+                        material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: Cesium.Color.YELLOW }),
+                        width: 3, leadTime: 0, trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000)
                     },
                     viewFrom: new Cesium.Cartesian3(0, -5000, 1500)
                 });
+
 
                 cesiumEntities[icao].lastSeen = now;
                 // Add interpolation settings
