@@ -436,10 +436,6 @@
             });
             return out;
         }
-                if (!seen.has(k)) { seen.add(k); out.push(a); }
-            });
-            return out;
-        }
         function paintInfra() {
             const body = document.getElementById("infraBody");
             const all = infraMerged();
