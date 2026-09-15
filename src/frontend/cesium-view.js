@@ -147,6 +147,8 @@ window.addEventListener('geoint:radar_update', (e) => {
             } else {
                 const positionProperty = new Cesium.SampledPositionProperty();
                 positionProperty.addSample(time, position);
+                positionProperty.backwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
+                positionProperty.forwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
                 
                 cesiumEntities[icao] = viewer.entities.add({
                     position: positionProperty,
@@ -166,7 +168,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                 });
                 cesiumEntities[icao].lastSeen = now;
                 // Add interpolation settings
-                cesiumEntities[icao].position.forwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
+                
             }
         }
     });
@@ -297,6 +299,8 @@ window.addEventListener('geoint:radar_update', (e) => {
             } else {
                 const positionProperty = new Cesium.SampledPositionProperty();
                 positionProperty.addSample(time, position);
+                positionProperty.backwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
+                positionProperty.forwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
                 
                 cesiumEntities[icao] = viewer.entities.add({
                     position: positionProperty,
@@ -316,7 +320,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                 });
                 cesiumEntities[icao].lastSeen = now;
                 // Add interpolation settings
-                cesiumEntities[icao].position.forwardExtrapolationType = Cesium.ExtrapolationType.HOLD;
+                
             }
         }
     });
@@ -462,8 +466,13 @@ window.enterCockpitMode = function() {
     if (!viewer) return;
     const planeIds = Object.keys(cesiumEntities).filter(k => cesiumEntities[k].path);
     if (planeIds.length === 0) {
-        if (window.logIntel) logIntel("Activating Live Radar for Cockpit Mode...", "info");
-        document.getElementById('radarBtn').click();
+        if (!window.radarActive) {
+            if (window.logIntel) logIntel("Activating Live Radar for Cockpit Mode...", "info");
+            document.getElementById('radarBtn').click();
+        } else {
+            if (window.logIntel) logIntel("Scanning sector for aircraft...", "info");
+            if (window.fetchLiveRadar) window.fetchLiveRadar(true);
+        }
         
         setTimeout(() => {
             const newPlaneIds = Object.keys(cesiumEntities).filter(k => cesiumEntities[k].path);
@@ -472,7 +481,7 @@ window.enterCockpitMode = function() {
             } else {
                 alert("No aircraft detected in this sector right now. Try panning the map.");
             }
-        }, 3000);
+        }, 8000);
         return;
     }
     viewer.selectedEntity = cesiumEntities[planeIds[Math.floor(Math.random() * planeIds.length)]];

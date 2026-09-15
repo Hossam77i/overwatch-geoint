@@ -62,12 +62,12 @@
         });
 
         // --- LIVE RADAR (ADS-B OpenSky) ---
-        let radarActive = false;
+        window.radarActive = false; let radarActive = false;
         let radarInterval = null;
         let radarMarkers = [];
 
         function toggleLiveRadar() {
-            radarActive = !radarActive;
+            radarActive = !radarActive; window.radarActive = radarActive;
             const btn = document.getElementById("radarBtn");
             if (radarActive) {
                 btn.style.background = "#ffea00";
@@ -160,7 +160,7 @@
             radarQueueProcessing = false;
         }
 
-        function fetchLiveRadar(isPan = false) {
+        window.fetchLiveRadar = fetchLiveRadar; function fetchLiveRadar(isPan = false) {
             if (!radarActive) return;
             
             const now = Date.now();
