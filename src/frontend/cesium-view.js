@@ -28,10 +28,12 @@ function enable3D() {
         document.head.appendChild(link);
         
         script.onload = () => {
+            const osmProvider = new Cesium.UrlTemplateImageryProvider({
+                url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            });
+            
             viewer = new Cesium.Viewer('cesiumContainer', {
-                imageryProvider: new Cesium.UrlTemplateImageryProvider({
-                    url: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                }),
+                baseLayer: new Cesium.ImageryLayer(osmProvider),
                 baseLayerPicker: false,
                 geocoder: false,
                 homeButton: false,
@@ -41,6 +43,10 @@ function enable3D() {
                 timeline: false,
                 infoBox: false
             });
+            
+            // Remove the default Cesium logo/credit text for a cleaner tactical look
+            viewer.cesiumWidget.creditContainer.style.display = 'none';
+            
             syncDataTo3D();
         };
         document.head.appendChild(script);
@@ -115,7 +121,6 @@ window.addEventListener('geoint:osint_update', (e) => {
     const assets = e.detail.assets;
     if (!assets) return;
     
-    // Clear old OSINT entities (optional, here we just add)
     assets.forEach(a => {
         viewer.entities.add({
             position: Cesium.Cartesian3.fromDegrees(a.lon, a.lat),
