@@ -173,10 +173,29 @@
                 activePlanes = {};
             }
             
-            // Expand the scan area by 150% so tightly zoomed users can see approaching aircraft off-screen
-            const bounds = map.getBounds().pad(1.5);
-            let lamin = bounds.getSouth(), lomin = bounds.getWest();
-            let lamax = bounds.getNorth(), lomax = bounds.getEast();
+            // Get bounds depending on active engine
+            let lamin, lomin, lamax, lomax;
+            if (window.is3DMode && window.viewer) {
+                const rect = window.viewer.camera.computeViewRectangle();
+                if (rect) {
+                    lamin = Cesium.Math.toDegrees(rect.south);
+                    lamax = Cesium.Math.toDegrees(rect.north);
+                    lomin = Cesium.Math.toDegrees(rect.west);
+                    lomax = Cesium.Math.toDegrees(rect.east);
+                    
+                    // Pad by 50% for off-screen aircraft
+                    const w_pad = Math.abs(lomax - lomin) * 0.5;
+                    const h_pad = Math.abs(lamax - lamin) * 0.5;
+                    lamin -= h_pad; lamax += h_pad;
+                    lomin -= w_pad; lomax += w_pad;
+                }
+            }
+            
+            if (lamin === undefined) {
+                const bounds = map.getBounds().pad(1.5);
+                lamin = bounds.getSouth(); lomin = bounds.getWest();
+                lamax = bounds.getNorth(); lomax = bounds.getEast();
+            }
             
             const MAX_SPAN = 15;
             const w = Math.abs(lomax - lomin);
