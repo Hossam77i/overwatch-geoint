@@ -73,20 +73,20 @@ function enable3D() {
             // 🔥 GOD'S EYE FEATURE: Photorealistic 3D Tiles & Buildings
             try {
                 if (Cesium.createGooglePhotorealistic3DTileset) {
-                    window.cesiumBuildings = await Cesium.createGooglePhotorealistic3DTileset();
-                    viewer.scene.primitives.add(window.cesiumBuildings);
+                    const tileset = await Cesium.createGooglePhotorealistic3DTileset();
+                    window.cesiumBuildings = viewer.scene.primitives.add(tileset);
+                } else if (Cesium.createOsmBuildingsAsync) {
+                    const b = await Cesium.createOsmBuildingsAsync();
+                    b.style = new Cesium.Cesium3DTileStyle({ color: "color('#445566', 0.8)" });
+                    window.cesiumBuildings = viewer.scene.primitives.add(b);
                 } else {
                     window.cesiumBuildings = viewer.scene.primitives.add(Cesium.createOsmBuildings());
-                    window.cesiumBuildings.style = new Cesium.Cesium3DTileStyle({
-                        color: "color('#445566', 0.8)"
-                    });
                 }
             } catch(e) {
                 console.error("Failed to load 3D tiles:", e);
-                try {
-                    viewer.scene.primitives.add(Cesium.createOsmBuildings());
-                } catch(e2){}
             }
+            
+            if (window.update3DSettings) window.update3DSettings();
             
             
             
