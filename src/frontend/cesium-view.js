@@ -203,7 +203,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                 positionProperty.addSample(time, position);
                 
                 const headingRad = Cesium.Math.toRadians(props.heading || props.track || 0);
-                const speedMps = (props.speed || props.gs || 400) * 0.514444;
+                const speedMps = props.velocity || (props.speed * 0.514444) || (props.gs * 0.514444) || (400 * 0.514444);
                 const dLat = (speedMps * 10 * Math.cos(headingRad)) / 111320;
                 const dLon = (speedMps * 10 * Math.sin(headingRad)) / (111320 * Math.cos(Cesium.Math.toRadians(lat)));
                 const futurePos = Cesium.Cartesian3.fromDegrees(lon + dLon, lat + dLat, alt);
@@ -216,9 +216,12 @@ window.addEventListener('geoint:radar_update', (e) => {
                 
                 
                 const callsign = props.flight || icao;
-                const speed = props.speed || props.gs || 0;
+                const speed = Math.round((props.velocity || (props.speed * 0.514444) || (props.gs * 0.514444) || 0) * 1.94384);
                 const altM = Math.round((alt || 0) * 3.28084);
                 const headingDeg = props.heading || props.track || 0;
+                
+                const viewX = -3000 * Math.sin(Cesium.Math.toRadians(headingDeg));
+                const viewY = -3000 * Math.cos(Cesium.Math.toRadians(headingDeg));
                 const type = props.t || "Unknown";
                 const squawk = props.squawk || "None";
                 
@@ -251,7 +254,7 @@ window.addEventListener('geoint:radar_update', (e) => {
                         material: new Cesium.PolylineGlowMaterialProperty({ glowPower: 0.1, color: Cesium.Color.YELLOW }),
                         width: 3, leadTime: 0, trailTime: 60, distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 10000000)
                     },
-                    viewFrom: new Cesium.Cartesian3(0, -3000, 800)
+                    viewFrom: new Cesium.Cartesian3(viewX, viewY, 800)
                 });
 
 
