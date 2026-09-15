@@ -27,7 +27,9 @@ function enable3D() {
         link.rel = 'stylesheet';
         document.head.appendChild(link);
         
-        script.onload = () => {
+        script.onload = async () => {
+            
+            Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6Il9nSnYtckgtWENYbDZYYkYiLCJqdGkiOiJmNTg1ZDQ3Ni02YmNmLTRjYjItYjI0MS1iNzc3YThkMmRmYTgiLCJpZCI6NDk1NTI2LCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3ODk0NzQ3MTl9.NhSZ5xbWdU5Afx4m6oBOmbfyqA4p7YMSonnwjcxBN4Q';
             const satelliteProvider = new Cesium.UrlTemplateImageryProvider({
                 url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 maximumLevel: 19
@@ -35,6 +37,7 @@ function enable3D() {
             
             viewer = new Cesium.Viewer('cesiumContainer', {
                 baseLayer: new Cesium.ImageryLayer(satelliteProvider),
+                terrainProvider: Cesium.createWorldTerrainAsync ? await Cesium.createWorldTerrainAsync() : Cesium.createWorldTerrain(),
                 
                 baseLayerPicker: false,
                 geocoder: false,
@@ -63,6 +66,24 @@ function enable3D() {
             // 🔥 POWER FEATURE: High-resolution atmosphere rendering
             viewer.scene.skyAtmosphere.hueShift = -0.05;
             viewer.scene.globe.depthTestAgainstTerrain = true; // Enable depth testing for real 3D terrain
+            
+            // 🔥 GOD'S EYE FEATURE: Photorealistic 3D Tiles & Buildings
+            try {
+                if (Cesium.createGooglePhotorealistic3DTileset) {
+                    const googleTileset = await Cesium.createGooglePhotorealistic3DTileset();
+                    viewer.scene.primitives.add(googleTileset);
+                } else {
+                    const buildings = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+                    buildings.style = new Cesium.Cesium3DTileStyle({
+                        color: "color('#445566', 0.8)"
+                    });
+                }
+            } catch(e) {
+                console.error("Failed to load 3D tiles:", e);
+                try {
+                    viewer.scene.primitives.add(Cesium.createOsmBuildings());
+                } catch(e2){}
+            }
             
             
             
