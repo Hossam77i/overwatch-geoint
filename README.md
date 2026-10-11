@@ -33,8 +33,8 @@
 ---
 
 
-## 🚨 LATEST UPDATE (v2.0) - GOD'S EYE 3D MODE
-The dashboard now features a massive upgrade: **God's Eye 3D Cinematic Mode**.
+## 🚨 LATEST UPDATE (v2.0) - 3D MODE
+The dashboard now features a massive upgrade: **3D Cinematic Mode**.
 Clicking the `🌐 3D MODE` button instantly morphs the interface into a tactical circular lens viewport tracking a photorealistic 3D globe powered by Cesium and OpenStreetMap.
 
 **New 3D Features:**
