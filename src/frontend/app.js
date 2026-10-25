@@ -1448,7 +1448,7 @@ window.toggleEarthquakes = async function() {
     
     if (isChecked) {
         window.earthquakesLayer.addTo(window.map);
-        logIntel("God's Eye: Fetching live seismic data from USGS...", "info");
+        logIntel("Overwatch 3D: Fetching live seismic data from USGS...", "info");
         
         if (!hasFetchedEarthquakes) {
             try {
@@ -1473,9 +1473,9 @@ window.toggleEarthquakes = async function() {
                 });
                 
                 window.dispatchEvent(new CustomEvent("geoint:earthquakes", { detail: data }));
-                logIntel(`God's Eye: Tracked ${data.features.length} seismic anomalies worldwide.`, "success");
+                logIntel(`Overwatch 3D: Tracked ${data.features.length} seismic anomalies worldwide.`, "success");
             } catch(e) {
-                logIntel("God's Eye: Failed to fetch seismic data.", "error");
+                logIntel("Overwatch 3D: Failed to fetch seismic data.", "error");
             }
         } else {
             window.dispatchEvent(new CustomEvent("geoint:earthquakes_toggle", { detail: { show: true } }));

@@ -33,8 +33,8 @@
 ---
 
 
-## 🚨 LATEST UPDATE (v2.0) - 3D MODE
-The dashboard now features a massive upgrade: **3D Cinematic Mode**.
+## 🚨 LATEST UPDATE (v2.0) - OVERWATCH 3D MODE
+The dashboard now features a massive upgrade: **Overwatch 3D Cinematic Mode**.
 Clicking the `🌐 3D MODE` button instantly morphs the interface into a tactical circular lens viewport tracking a photorealistic 3D globe powered by Cesium and OpenStreetMap.
 
 **New 3D Features:**
@@ -125,5 +125,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Recent Architectural Upgrades
 - **Modular Uncoupling**: Transitioned from a monolithic handler to distinct, testable domain modules (`src/api`, `src/cv`, `src/osint`, `src/db`).
-- **3D God's Eye View**: Integrated a lazy-loaded CesiumJS layer that shares state with Leaflet via an event bus, bringing a 3D orbital capability without duplicating fetches or logic.
+- **3D Overwatch View**: Integrated a lazy-loaded CesiumJS layer that shares state with Leaflet via an event bus, bringing a 3D orbital capability without duplicating fetches or logic.
 - **Event-Driven UI**: Converted direct DOM manipulation of tactical components to a standardized event-dispatch model (`geoint:radar_update`, `geoint:osint_update`).

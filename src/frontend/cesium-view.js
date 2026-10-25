@@ -3,7 +3,7 @@
 let viewer = null;
 let cesiumEntities = {};
 let is3DMode = false;
-    document.body.classList.remove('gods-eye-mode');
+    document.body.classList.remove('overwatch-3d-mode');
 
 window.toggle3DView = function() {
     if (!is3DMode) {
@@ -15,7 +15,7 @@ window.toggle3DView = function() {
 
 function enable3D() {
     is3DMode = true;
-    document.body.classList.add('gods-eye-mode');
+    document.body.classList.add('overwatch-3d-mode');
     document.getElementById('map').style.display = 'none';
     document.getElementById('cesiumContainer').style.display = 'block';
     document.getElementById('toggle3DBtn').textContent = '🗺️ 2D MODE';
@@ -42,7 +42,7 @@ function enable3D() {
             viewer = new Cesium.Viewer('cesiumContainer', {
                 baseLayer: new Cesium.ImageryLayer(satelliteProvider),
                 terrainProvider: Cesium.createWorldTerrainAsync ? await Cesium.createWorldTerrainAsync() : Cesium.createWorldTerrain(),
-                terrainExaggeration: 1.5, // 🔥 GOD'S EYE FEATURE: Dramatic Mountains
+                terrainExaggeration: 1.5, // 🔥 OVERWATCH 3D FEATURE: Dramatic Mountains
                 
                 baseLayerPicker: true,
                 geocoder: false,
@@ -58,7 +58,7 @@ function enable3D() {
             viewer.scene.globe.enableLighting = true;
             viewer.clock.shouldAnimate = true; // FORCE CLOCK TO TICK FOR LIVE TRACKING
             
-            // 🔥 GOD'S EYE FEATURE: Cockpit View / Entity Tracking
+            // 🔥 OVERWATCH 3D FEATURE: Cockpit View / Entity Tracking
             viewer.selectedEntityChanged.addEventListener(function(selectedEntity) {
                 for (let id in cesiumEntities) {
                     if (cesiumEntities[id].label) cesiumEntities[id].label.show = false;
@@ -125,7 +125,7 @@ function enable3D() {
             viewer.scene.skyAtmosphere.hueShift = -0.05;
             viewer.scene.globe.depthTestAgainstTerrain = true; // Enable depth testing for real 3D terrain
             
-            // 🔥 GOD'S EYE FEATURE: Photorealistic 3D Tiles & Buildings
+            // 🔥 OVERWATCH 3D FEATURE: Photorealistic 3D Tiles & Buildings
             try {
                 if (Cesium.createGooglePhotorealistic3DTileset) {
                     const tileset = await Cesium.createGooglePhotorealistic3DTileset();
@@ -166,7 +166,7 @@ function enable3D() {
 
 function disable3D() {
     is3DMode = false;
-    document.body.classList.remove('gods-eye-mode');
+    document.body.classList.remove('overwatch-3d-mode');
     document.getElementById('cesiumContainer').style.display = 'none';
     document.getElementById('map').style.display = 'block';
     document.getElementById('toggle3DBtn').textContent = '🌐 3D MODE';
@@ -294,7 +294,7 @@ function syncDataTo3D() {
         const center = window.map.getCenter();
         const alt = Math.max(10000, 20000000 / Math.pow(2, window.map.getZoom()));
         
-        // 🔥 GOD'S EYE FEATURE: Always force cinematic pitch
+        // 🔥 OVERWATCH 3D FEATURE: Always force cinematic pitch
         viewer.camera.flyTo({
             destination: Cesium.Cartesian3.fromDegrees(center.lng, center.lat, alt),
             orientation: {

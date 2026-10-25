@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="src/frontend/styles.css?v=1789507460">
 
     <style>
-        /* 🔥 GOD'S EYE FEATURE: Spy Satellite HUD Overlay */
+        /* 🔥 OVERWATCH 3D FEATURE: Spy Satellite HUD Overlay */
         #hud-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -60,7 +60,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         
-        /* Native God's Eye UI Styling */
+        /* Native Overwatch 3D UI Styling */
         .ge-panel {
             position: absolute;
             background: rgba(10, 15, 25, 0.85);
@@ -73,7 +73,7 @@
             backdrop-filter: blur(10px);
             display: none;
         }
-        body.gods-eye-mode .ge-panel { display: block; }
+        body.overwatch-3d-mode .ge-panel { display: block; }
         
         .ge-right-panel { top: 50%; right: 40px; transform: translateY(-50%); width: 320px; }
         .ge-left-panel { top: 50%; left: 40px; transform: translateY(-50%); width: 250px; background: transparent; border: none; }
@@ -84,7 +84,7 @@
             border-radius: 30px; display: none; align-items: center; padding: 5px 20px;
             z-index: 1000; gap: 40px;
         }
-        body.gods-eye-mode .ge-bottom-bar { display: flex; }
+        body.overwatch-3d-mode .ge-bottom-bar { display: flex; }
         
         .ge-header { font-size: 10px; letter-spacing: 2px; color: #4b6a9b; text-transform: uppercase; margin-bottom: 15px; display: flex; justify-content: space-between; }
         
@@ -122,39 +122,39 @@
         .ge-bottom-text { font-size: 11px; letter-spacing: 1px; color: #4b6a9b; cursor: pointer; display: flex; align-items: center; gap: 8px; }
         .ge-bottom-text:hover { color: #8ab4f8; }
 
-        /* 🔥 GOD'S EYE MODE OVERRIDES */
-        body.gods-eye-mode {
+        /* 🔥 OVERWATCH 3D MODE OVERRIDES */
+        body.overwatch-3d-mode {
             font-family: 'Share Tech Mono', monospace !important;
             color: #00f0ff !important;
         }
         
-        body.gods-eye-mode header, 
-        body.gods-eye-mode .bottom-bar {
+        body.overwatch-3d-mode header, 
+        body.overwatch-3d-mode .bottom-bar {
             display: none !important;
         }
         
-        body.gods-eye-mode #sidebar {
+        body.overwatch-3d-mode #sidebar {
             display: none !important;
         }
         
-        body.gods-eye-mode .main-content {
+        body.overwatch-3d-mode .main-content {
             margin-left: 0 !important; /* Remove sidebar margin so map is full screen */
         }
         
-        body.gods-eye-mode #map, 
-        body.gods-eye-mode #cesiumContainer {
+        body.overwatch-3d-mode #map, 
+        body.overwatch-3d-mode #cesiumContainer {
             width: 100vw !important;
             height: 100vh !important;
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
             z-index: 1;
-            /* 🔥 GOD'S EYE FEATURE: Literal Spy Lens Mask */
+            /* 🔥 OVERWATCH 3D FEATURE: Literal Spy Lens Mask */
             clip-path: circle(45vh at 50% 50%) !important;
             filter: contrast(1.1) saturate(0.8) brightness(1.1) !important;
         }
         
-        body.gods-eye-mode {
+        body.overwatch-3d-mode {
             background-color: #050a14 !important;
             background-image: 
                 linear-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px),
@@ -162,15 +162,15 @@
             background-size: 50px 50px;
         }
 
-        body.gods-eye-mode .panel {
+        body.overwatch-3d-mode .panel {
             background: transparent !important;
             border-color: rgba(0, 240, 255, 0.3) !important;
         }
         
-        body.gods-eye-mode h3 { color: #fff !important; text-shadow: 0 0 5px #00f0ff; letter-spacing: 1px; }
+        body.overwatch-3d-mode h3 { color: #fff !important; text-shadow: 0 0 5px #00f0ff; letter-spacing: 1px; }
 
         /* Floating Top Bar for buttons */
-        #gods-eye-top-bar {
+        #overwatch-3d-top-bar {
             display: none;
             position: absolute;
             top: 20px; left: 50%;
@@ -178,20 +178,20 @@
             z-index: 1000;
             gap: 15px;
         }
-        body.gods-eye-mode #gods-eye-top-bar { display: flex; }
+        body.overwatch-3d-mode #overwatch-3d-top-bar { display: flex; }
         
-        #gods-eye-top-bar button {
+        #overwatch-3d-top-bar button {
             background: rgba(5, 10, 20, 0.65); border: 1px solid rgba(0, 240, 255, 0.5);
             color: #00f0ff; font-family: 'Share Tech Mono', monospace; padding: 10px 20px;
             cursor: pointer; backdrop-filter: blur(8px); text-transform: uppercase; border-radius: 4px;
         }
-        #gods-eye-top-bar button:hover { background: #00f0ff; color: #000; box-shadow: 0 0 10px #00f0ff; }
-        #gods-eye-top-bar button.danger { border-color: #ff3333; color: #ff3333; }
-        #gods-eye-top-bar button.danger:hover { background: #ff3333; color: #000; box-shadow: 0 0 10px #ff3333; }
+        #overwatch-3d-top-bar button:hover { background: #00f0ff; color: #000; box-shadow: 0 0 10px #00f0ff; }
+        #overwatch-3d-top-bar button.danger { border-color: #ff3333; color: #ff3333; }
+        #overwatch-3d-top-bar button.danger:hover { background: #ff3333; color: #000; box-shadow: 0 0 10px #ff3333; }
         
         /* HUD Elements */
         .hud-overlay-element { display: none; z-index: 999; pointer-events: none; }
-        body.gods-eye-mode .hud-overlay-element { display: block; }
+        body.overwatch-3d-mode .hud-overlay-element { display: block; }
         
         #crosshair {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -240,11 +240,11 @@
     
 
 
-    <!-- 🔥 GOD'S EYE UI ELEMENTS -->
+    <!-- 🔥 OVERWATCH 3D UI ELEMENTS -->
     
     
     
-    <!-- 🔥 NATIVE GOD'S EYE UI CLONE -->
+    <!-- 🔥 NATIVE OVERWATCH 3D UI CLONE -->
     <div class="ge-panel ge-left-panel">
         <div class="ge-left-item" onclick="executeMacroOSINT();">
             DATA LAYERS <span class="plus">+</span>
@@ -442,7 +442,7 @@
             </div>
 
             <div class="panel macro-options" style="margin-bottom: 10px;">
-                <h3 style="color:#ffea00">👁️ God's Eye Live Data</h3>
+                <h3 style="color:#ffea00">👁️ Overwatch 3D Live Data</h3>
                 <label><input type="checkbox" id="layer-earthquakes" onchange="toggleEarthquakes()"> 🔴 Live Earthquakes (M2.5+ past 24h)</label>
             </div>
 
